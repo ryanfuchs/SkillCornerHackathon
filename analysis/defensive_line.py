@@ -23,13 +23,13 @@ class DefensiveLineFrame(IndicatorFrameBase[DefensiveLineKind]):
 class DefensiveLineFrameRange(IndicatorFrameRange[DefensiveLineKind]):
     pass
 
-# 2. Create the Analyzer
+
 class DefensiveLineAnalyzer(IndicatorAnalyzer[DefensiveLineKind]):
     def __init__(self, match_bundle: MatchBundle):
         super().__init__(match_bundle)
         self._frames_by_id = {f.frame: f for f in self.match_bundle.frames}
         
-        # Use Ryan's helper to map player_ids to their teams
+        
         match_id = self.match_bundle.match_data.id
         team_df = get_player_team(match_id)
         self.player_to_team = dict(zip(team_df["id"], team_df["team_id"]))
@@ -48,10 +48,9 @@ class DefensiveLineAnalyzer(IndicatorAnalyzer[DefensiveLineKind]):
             return empty_frame
 
         # 1. Figure out who is defending
-        attacking_player_id = current_frame.possession.player_id
-        attacking_team_id = self.player_to_team.get(attacking_player_id)
+        pos_team = current_frame.possession.group
         
-        if not attacking_team_id:
+        if not pos_team:
             return empty_frame
 
         # Extract only the defending team's outfield players (assuming GK is usually the deepest)
@@ -59,11 +58,11 @@ class DefensiveLineAnalyzer(IndicatorAnalyzer[DefensiveLineKind]):
         for p in current_frame.player_data:
             team_id = self.player_to_team.get(p.player_id)
             # Only grab defending players who are actually detected
-            if team_id is not None and team_id != attacking_team_id and p.is_detected:
+            if team_id is not None and team_id != pos_team:
                 defending_players[p.player_id] = (p.x, p.y)
 
         # We need at least a few players to form a shape graph
-        if len(defending_players) < 4:
+        if len(defending_players) < 3:
             return empty_frame
 
         # 2. Use Ryan's Shape Graph to get tactical positions
@@ -71,34 +70,49 @@ class DefensiveLineAnalyzer(IndicatorAnalyzer[DefensiveLineKind]):
             # Returns {player_id: (tactical_x, tactical_y)}
             tactical_grid = frame_to_positions(defending_players)
         except Exception:
+            print(" frame_to_positions failed for the frame")
             return empty_frame # Catch any Delaunay Triangulation errors
 
-        # 3. Find the "Last Line" (Defenders)
-        # Determine which goal they are defending based on their average X position
         avg_x = np.mean([coords[0] for coords in defending_players.values()])
         
-        if avg_x < 0:
-            # Defending left goal: The defensive line has the MINIMUM tactical X
-            target_tactical_x = min(pos[0] for pos in tactical_grid.values())
-        else:
-            # Defending right goal: The defensive line has the MAXIMUM tactical X
-            target_tactical_x = max(pos[0] for pos in tactical_grid.values())
+        # Get all the unique tactical "lines" (X-coordinates in Ryan's grid)
+        unique_tactical_x = sorted(list(set(pos[0] for pos in tactical_grid.values())))
 
-        # Get the actual (x, y) coordinates of just the players in that tactical line
+        # Sort the lines from closest-to-goal to furthest-from-goal
+        if avg_x < 0:
+            # Defending left goal: Lowest tactical X is closest to goal
+            tactical_lines = unique_tactical_x
+        else:
+            # Defending right goal: Highest tactical X is closest to goal
+            tactical_lines = sorted(unique_tactical_x, reverse=True)
+
+        # Grab the players in the very last line
+        target_tactical_x = tactical_lines[0]
         back_line_coords = [
             defending_players[p_id] 
             for p_id, tac_pos in tactical_grid.items() 
             if tac_pos[0] == target_tactical_x
         ]
 
+        # --- THE NEW ADDITION: MERGE THE SECOND LINE ---
+        # If the back line has < 3 players, grab the deepest midfielders too!
+        if len(back_line_coords) < 3 and len(tactical_lines) > 1:
+            second_line_x = tactical_lines[1]
+            second_line_coords = [
+                defending_players[p_id] 
+                for p_id, tac_pos in tactical_grid.items() 
+                if tac_pos[0] == second_line_x
+            ]
+            # Add the midfielders into the back line array
+            back_line_coords.extend(second_line_coords)
+
+        # If it is STILL less than 3 even after combining them (very rare), max chaos
         if len(back_line_coords) < 3:
-            # If the back line has collapsed to < 3 players, that is peak chaos!
             return DefensiveLineFrame(
                 frame_index=frame_index, indicator_type=IndicatorType.DEFENSIVE_LINE,
                 score=1.0, jaggedness_score=1.0, spacing_score=1.0,
                 defenders_in_line=len(back_line_coords), defending_team_id=None
             )
-
         # --- MATH 1: JAGGEDNESS SCORE ---
         # Standard deviation of their X coordinates. 
         # A perfectly flat line = 0m std dev. A broken line = 3m+ std dev.
