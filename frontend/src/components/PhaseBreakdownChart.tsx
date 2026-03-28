@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Legend,
-  Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -112,6 +112,9 @@ const payload = {
   ...phasesPart,
   frameSeries,
 }
+
+/** Per-series fill: low enough that one band is subtle; overlaps read darker (src-over alpha). */
+const AREA_FILL_OPACITY = 0.2
 
 const INDICATOR_STYLES: { id: string; label: string; color: string }[] = [
   { id: 'player_clusters', label: 'Player clusters', color: '#a855f7' },
@@ -316,7 +319,7 @@ export function PhaseBreakdownChart() {
       ) : (
         <div className="h-72 w-full min-h-72 min-w-0 sm:h-80 sm:min-h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
               <XAxis
                 dataKey="t"
@@ -349,15 +352,19 @@ export function PhaseBreakdownChart() {
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               {INDICATOR_STYLES.map(({ id, label, color }) => (
-                <Line
+                <Area
                   key={id}
                   type="monotone"
                   dataKey={id}
                   name={label}
                   stroke={color}
                   strokeWidth={1.5}
+                  fill={color}
+                  fillOpacity={AREA_FILL_OPACITY}
+                  baseLine={0}
                   dot={false}
                   isAnimationActive={false}
+                  activeDot={false}
                 />
               ))}
               {inPhase && playheadT != null && (
@@ -368,7 +375,7 @@ export function PhaseBreakdownChart() {
                   strokeDasharray="4 3"
                 />
               )}
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
