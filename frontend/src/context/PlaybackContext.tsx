@@ -8,7 +8,10 @@ import {
   type SetStateAction,
 } from 'react'
 
-/** Current phase (row/order index) and tracking frame index for the match view. */
+/**
+ * Current phase (order index into `phaseBreakdownPhases.json` → `phases`) and bundle frame index
+ * (index into `MatchBundle.frames`, same as Python analyzers use for `analyze_frame`).
+ */
 export type PlaybackIndicator = {
   phaseIndex: number
   frameIndex: number

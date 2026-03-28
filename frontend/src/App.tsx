@@ -1,6 +1,7 @@
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MomentumChart } from '@/components/MomentumChart'
+import { PhaseBreakdownChart } from '@/components/PhaseBreakdownChart'
 
 const matchData = {
   homeTeam: 'SUI',
@@ -13,7 +14,7 @@ const matchData = {
 
 function App() {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-dvh flex-col">
       <header className="flex shrink-0 flex-col items-center gap-2 px-8 pb-3 pt-4">
         <p className="text-sm text-muted-foreground font-medium tracking-widest uppercase">
           {matchData.competition} &mdash; {matchData.date}
@@ -30,40 +31,40 @@ function App() {
 
       <Separator className="shrink-0" />
 
-      <main className="grid min-h-0 flex-1 grid-cols-3 gap-4 overflow-hidden p-6 [grid-template-rows:minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.42fr)]">
-        <Card className="col-span-2 row-span-2 h-full min-h-0 bg-transparent">
+      <main className="grid flex-1 grid-cols-1 gap-4 p-6 pb-12 md:grid-cols-3 md:grid-rows-[auto_auto] md:[grid-template-columns:minmax(0,2fr)_minmax(0,1fr)]">
+        <Card className="bg-transparent md:col-span-2 md:row-span-2 md:min-h-[min(60vh,32rem)]">
           <CardHeader className="shrink-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pitch Visualization</CardTitle>
           </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground/30 text-sm">
+          <CardContent className="flex min-h-[12rem] flex-1 items-center justify-center text-muted-foreground/30 text-sm md:min-h-[min(50vh,28rem)]">
             pitch coming soon
           </CardContent>
         </Card>
 
-        <Card className="h-full min-h-0 bg-transparent">
+        <Card className="bg-transparent md:min-h-[10rem]">
           <CardHeader className="shrink-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Summary</CardTitle>
           </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground/30 text-sm">
+          <CardContent className="flex min-h-[8rem] flex-1 items-center justify-center text-muted-foreground/30 text-sm">
             coming soon
           </CardContent>
         </Card>
 
-        <Card className="h-full min-h-0 bg-transparent">
+        <Card className="bg-transparent md:min-h-[10rem]">
           <CardHeader className="shrink-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Video Player</CardTitle>
           </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground/30 text-sm">
+          <CardContent className="flex min-h-[8rem] flex-1 items-center justify-center text-muted-foreground/30 text-sm">
             coming soon
           </CardContent>
         </Card>
 
-        <Card className="col-span-3 h-full min-h-0 bg-transparent">
+        <Card className="bg-transparent md:col-span-3">
           <CardHeader className="shrink-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Phase Breakdown</CardTitle>
           </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground/30 text-sm">
-            coming soon
+          <CardContent className="flex flex-col gap-2 p-4 pt-0">
+            <PhaseBreakdownChart />
           </CardContent>
         </Card>
       </main>
