@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MomentumChart } from '@/components/MomentumChart'
 import { PhaseBreakdownChart } from '@/components/PhaseBreakdownChart'
 import { PitchView } from '@/components/PitchView'
+import { useMatchTracking } from "@/hooks/useMatchTracking";
 
 const matchData = {
   homeTeam: "SUI",
@@ -14,6 +15,8 @@ const matchData = {
 };
 
 function App() {
+  const { players, ball, loadError, loaded } = useMatchTracking();
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="py-8 px-8 flex flex-col items-center gap-2">
@@ -41,10 +44,18 @@ function App() {
           <CardHeader className="shrink-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Pitch Visualization
+              {loadError ? (
+                <span className="ml-2 text-destructive font-normal">
+                  (failed to load tracking: {loadError})
+                </span>
+              ) : null}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 min-h-0 p-0 pt-2 flex flex-col">
-            <PitchView />
+            <PitchView
+              players={loaded ? players : undefined}
+              ballPosition={loaded ? ball : undefined}
+            />
           </CardContent>
         </Card>
 

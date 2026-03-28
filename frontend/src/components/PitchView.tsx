@@ -346,7 +346,13 @@ function createSoccerBallTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-function FootballBall() {
+function FootballBall({
+  x = 0,
+  y = 0,
+}: {
+  x?: number;
+  y?: number;
+}) {
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => createSoccerBallTexture(), []);
 
@@ -362,7 +368,7 @@ function FootballBall() {
   return (
     <mesh
       ref={meshRef}
-      position={[0, 0, BALL_RADIUS + LINE_LIFT + 0.02]}
+      position={[x, y, BALL_RADIUS + LINE_LIFT + 0.02]}
     >
       <sphereGeometry args={[BALL_RADIUS, 48, 32]} />
       <meshStandardMaterial
@@ -573,9 +579,16 @@ function PlayerMarkers({ players }: { players: PitchPlayer[] }) {
 type PitchViewProps = {
   /** Player positions in pitch plane metres; updates are smoothed toward new coordinates. */
   players?: PitchPlayer[];
+  /**
+   * Ball centre in pitch plane (m). Omitted = default centre spot; `null` = not drawn (e.g. not detected).
+   */
+  ballPosition?: { x: number; y: number } | null;
 };
 
-export function PitchView({ players = [] }: PitchViewProps) {
+export function PitchView({
+  players = [],
+  ballPosition,
+}: PitchViewProps) {
   const [overhead, setOverhead] = useState(false);
 
   return (
@@ -604,7 +617,12 @@ export function PitchView({ players = [] }: PitchViewProps) {
           <PitchPlane />
           <PitchMarkings />
           <CenterSpot />
-          <FootballBall />
+          {(ballPosition === undefined || ballPosition !== null) && (
+            <FootballBall
+              x={ballPosition?.x ?? 0}
+              y={ballPosition?.y ?? 0}
+            />
+          )}
           <PenaltySpots />
           {!overhead && (
             <>

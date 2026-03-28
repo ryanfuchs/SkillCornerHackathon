@@ -1,3 +1,8 @@
+import { useCallback, useRef, useState } from 'react'
+import { Pause, Play } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { usePlayback } from '@/context/PlaybackContext'
+
 // Momentum 0–1 per minute, minute 0–90
 const momentumData: { minute: number; value: number }[] = [
   { minute: 0,  value: 0.30 },
@@ -99,6 +104,11 @@ const PAD_TOP = 8
 const chartH = H - PAD_TOP
 const baseY = PAD_TOP + chartH
 
+/** Extra top space in viewBox for labels (playback timecode). */
+const VIEW_TOP = 20
+const VIEW_BOX = `-2 -${VIEW_TOP} ${W + 4} ${H + VIEW_TOP + 2}` as const
+const TRACK_PX = H + VIEW_TOP
+
 function toX(minute: number) {
   return (minute / 90) * W
 }
@@ -108,22 +118,109 @@ function toY(value: number) {
 
 const pts = momentumData.map((d) => ({ x: toX(d.minute), y: toY(d.value) }))
 const polyline = pts.map((p) => `${p.x},${p.y}`).join(' ')
-const last = pts[pts.length - 1]
-const first = pts[0]
+const last = pts[pts.length - 1]!
+const first = pts[0]!
 const areaPoints = `${polyline} ${last.x},${baseY} ${first.x},${baseY}`
 
 const tickMinutes = [0, 15, 30, 45, 60, 75, 90]
 
+/** Chart x ∈ [0, W] → bundle frame index (10 Hz timeline). */
+function xToFrameIndex(x: number, playbackFrameCount: number) {
+  if (playbackFrameCount <= 0) return 0
+  const f = Math.max(0, Math.min(1, x / W))
+  const max = playbackFrameCount - 1
+  return Math.min(max, Math.floor(f * playbackFrameCount))
+}
+
+/** Bundle frame → x on chart (linear over full timeline). */
+function frameIndexToX(frameIndex: number, playbackFrameCount: number) {
+  if (playbackFrameCount <= 1) return 0
+  const f = frameIndex / (playbackFrameCount - 1)
+  return f * W
+}
+
+/** Match clock aligned to chart 0–90′: wall time from scrub position. */
+function formatClockFromChartX(x: number) {
+  const f = Math.max(0, Math.min(1, x / W))
+  const totalSeconds = f * 90 * 60
+  const m = Math.floor(totalSeconds / 60)
+  const s = Math.floor(totalSeconds % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/** Wall time from bundle frame at 10 Hz (for playhead label). */
+function formatClockFromFrame(frameIndex: number) {
+  const totalSeconds = frameIndex / 10
+  const m = Math.floor(totalSeconds / 60)
+  const s = Math.floor(totalSeconds % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 export function MomentumChart() {
+  const {
+    frameIndex,
+    playbackFrameCount,
+    jumpToFrame,
+    isPlaying,
+    pause,
+    resume,
+  } = usePlayback()
+  const [hoverX, setHoverX] = useState<number | null>(null)
+  /** Hit target for x-mapping (track only; same width as SVG). */
+  const trackRef = useRef<HTMLDivElement>(null)
+
+  const clientToSvgX = useCallback((clientX: number) => {
+    const el = trackRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0) return 0
+    const t = (clientX - rect.left) / rect.width
+    return Math.max(0, Math.min(W, t * W))
+  }, [])
+
+  const onChartMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    setHoverX(clientToSvgX(e.clientX))
+  }
+  const onChartLeave = () => setHoverX(null)
+
+  const onChartClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const x = clientToSvgX(e.clientX)
+    jumpToFrame(xToFrameIndex(x, playbackFrameCount))
+  }
+
+  const playX =
+    playbackFrameCount > 1
+      ? frameIndexToX(frameIndex, playbackFrameCount)
+      : playbackFrameCount === 1
+        ? W / 2
+        : null
+
+  const hoverFrame =
+    hoverX != null && playbackFrameCount > 0
+      ? xToFrameIndex(hoverX, playbackFrameCount)
+      : null
+
+  const hoverPct = hoverX != null ? (hoverX / W) * 100 : null
+
+  const matchClockLabel =
+    playbackFrameCount > 0 ? formatClockFromFrame(frameIndex) : '—'
+
   return (
-    <div className="w-4/5 mx-auto mt-6">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%"
-        height={H}
-        preserveAspectRatio="none"
-        className="block overflow-visible"
-      >
+    <div
+      ref={trackRef}
+      className="w-4/5 mx-auto mt-6 cursor-crosshair touch-none select-none"
+      onMouseMove={onChartMove}
+      onMouseLeave={onChartLeave}
+      onClick={onChartClick}
+    >
+      <div className="relative w-full" style={{ height: TRACK_PX }}>
+        <svg
+          viewBox={VIEW_BOX}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 block overflow-visible"
+        >
         <defs>
           <linearGradient id="momentumGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#a855f7" stopOpacity="0.5" />
@@ -150,7 +247,65 @@ export function MomentumChart() {
           strokeOpacity="0.8"
           strokeLinejoin="round"
         />
+
+        {/* Current playback (10 Hz timeline) */}
+        {playX != null && playbackFrameCount > 0 && (
+          <g pointerEvents="none">
+            <line
+              x1={playX} y1={PAD_TOP}
+              x2={playX} y2={baseY}
+              stroke="hsl(var(--foreground))"
+              strokeWidth="1.25"
+              strokeOpacity="0.55"
+            />
+            <text
+              x={playX}
+              y={PAD_TOP - 1}
+              textAnchor="middle"
+              fill="hsl(var(--foreground))"
+              fontSize="10"
+              opacity={0.75}
+              className="tabular-nums"
+            >
+              {formatClockFromFrame(frameIndex)}
+            </text>
+          </g>
+        )}
+
       </svg>
+
+        {/* HTML/CSS playhead — theme colors + outline so it reads on the purple fill */}
+        {hoverPct != null && hoverX != null && (
+          <div
+            className="pointer-events-none absolute inset-0 z-20 overflow-visible"
+            aria-hidden
+          >
+            <div
+              className="absolute top-0 bottom-0 flex min-h-0 w-0 flex-col items-center"
+              style={{
+                left: `${hoverPct}%`,
+                transform: 'translateX(-50%)',
+              }}
+            >
+              <div className="mb-0.5 flex shrink-0 flex-col items-center">
+                <span className="whitespace-nowrap rounded bg-background/95 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground shadow-sm ring-1 ring-border/80">
+                  {formatClockFromChartX(hoverX)}
+                  {hoverFrame != null && (
+                    <span className="font-normal text-muted-foreground">
+                      {` · f${hoverFrame}`}
+                    </span>
+                  )}
+                </span>
+                <div
+                  className="h-0 w-0 border-x-[6px] border-x-transparent border-t-[8px] border-t-foreground"
+                  style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.35))' }}
+                />
+              </div>
+              <div className="min-h-[24px] w-[3px] flex-1 rounded-[1px] bg-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.45)]" />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* x-axis labels as HTML so they're never clipped */}
       <div className="relative w-full h-5 mt-1">
@@ -163,6 +318,35 @@ export function MomentumChart() {
             {m}'
           </span>
         ))}
+      </div>
+
+      <div className="mt-2 flex items-center justify-center gap-2">
+        <p
+          className="text-sm font-medium tabular-nums text-foreground tracking-tight"
+          aria-live="polite"
+        >
+          {matchClockLabel}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className="shrink-0"
+          disabled={playbackFrameCount === 0}
+          aria-label={isPlaying ? 'Pause' : 'Resume'}
+          aria-pressed={isPlaying}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (isPlaying) pause()
+            else resume()
+          }}
+        >
+          {isPlaying ? (
+            <Pause className="size-4" />
+          ) : (
+            <Play className="size-4" />
+          )}
+        </Button>
       </div>
     </div>
   )
