@@ -236,7 +236,7 @@ def main() -> None:
         granularity_x=4,
         granularity_y=4,
         min_players_threshold=2,
-        running_median_window_size=100,
+        running_median_window_size=10,
     )
     tactical_grid_cache: dict[int, dict[int, tuple[int, int]]] = {}
     pc = PlayerClusterAnalyzer(bundle, pc_config)

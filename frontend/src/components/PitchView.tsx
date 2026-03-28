@@ -298,6 +298,25 @@ function PenaltySpots() {
   );
 }
 
+/** Soft radial mask: white center → transparent edge (for alphaMap). */
+function createBallShadowAlphaMap(): THREE.CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const c = size / 2;
+  const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+  g.addColorStop(0, "rgba(255,255,255,0.95)");
+  g.addColorStop(0.42, "rgba(255,255,255,0.35)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.NoColorSpace;
+  return tex;
+}
+
 function createSoccerBallTexture(): THREE.CanvasTexture {
   const w = 512;
   const h = 256;
@@ -346,19 +365,27 @@ function createSoccerBallTexture(): THREE.CanvasTexture {
   return tex;
 }
 
+const BALL_SHADOW_RADIUS = BALL_RADIUS * 1.38;
+
 function FootballBall({
   x = 0,
   y = 0,
+  z = 0,
 }: {
   x?: number;
   y?: number;
+  z?: number;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => createSoccerBallTexture(), []);
+  const shadowAlphaMap = useMemo(() => createBallShadowAlphaMap(), []);
 
   useLayoutEffect(() => {
-    return () => texture.dispose();
-  }, [texture]);
+    return () => {
+      texture.dispose();
+      shadowAlphaMap.dispose();
+    };
+  }, [texture, shadowAlphaMap]);
 
   useFrame((_, delta) => {
     const m = meshRef.current;
@@ -366,17 +393,39 @@ function FootballBall({
   });
 
   return (
-    <mesh
-      ref={meshRef}
-      position={[x, y, BALL_RADIUS + LINE_LIFT + 0.02]}
-    >
-      <sphereGeometry args={[BALL_RADIUS, 48, 32]} />
-      <meshStandardMaterial
-        map={texture}
-        roughness={0.38}
-        metalness={0.06}
-      />
-    </mesh>
+    <group position={[x, y, 0]}>
+      {/* Drawn after players; depthTest off so it layers above player discs where they overlap. */}
+      <mesh
+        position={[0, 0, LINE_LIFT + 0.004]}
+        rotation={[0, 0, 0]}
+        renderOrder={9}
+      >
+        <circleGeometry args={[BALL_SHADOW_RADIUS, 40]} />
+        <meshBasicMaterial
+          color="#050806"
+          transparent
+          opacity={0.5}
+          alphaMap={shadowAlphaMap}
+          depthWrite={false}
+          depthTest={false}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh
+        ref={meshRef}
+        position={[0, 0, z + BALL_RADIUS + LINE_LIFT + 0.02]}
+        renderOrder={10}
+      >
+        <sphereGeometry args={[BALL_RADIUS, 48, 32]} />
+        <meshStandardMaterial
+          map={texture}
+          roughness={0.38}
+          metalness={0.06}
+          depthTest
+          depthWrite
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -546,14 +595,12 @@ function PlayerCircle({
 
   return (
     <group ref={groupRef}>
-      <mesh>
+      <mesh renderOrder={0}>
         <circleGeometry args={[radius, 32]} />
         <meshBasicMaterial
           color={color}
           depthTest
-          polygonOffset
-          polygonOffsetFactor={-1}
-          polygonOffsetUnits={-1}
+          depthWrite
         />
       </mesh>
     </group>
@@ -582,7 +629,7 @@ type PitchViewProps = {
   /**
    * Ball centre in pitch plane (m). Omitted = default centre spot; `null` = not drawn (e.g. not detected).
    */
-  ballPosition?: { x: number; y: number } | null;
+  ballPosition?: { x: number; y: number; z?: number } | null;
 };
 
 export function PitchView({
@@ -617,12 +664,6 @@ export function PitchView({
           <PitchPlane />
           <PitchMarkings />
           <CenterSpot />
-          {(ballPosition === undefined || ballPosition !== null) && (
-            <FootballBall
-              x={ballPosition?.x ?? 0}
-              y={ballPosition?.y ?? 0}
-            />
-          )}
           <PenaltySpots />
           {!overhead && (
             <>
@@ -631,6 +672,13 @@ export function PitchView({
             </>
           )}
           <PlayerMarkers players={players} />
+          {(ballPosition === undefined || ballPosition !== null) && (
+            <FootballBall
+              x={ballPosition?.x ?? 0}
+              y={ballPosition?.y ?? 0}
+              z={ballPosition?.z ?? 0}
+            />
+          )}
         </group>
       </Canvas>
     </div>

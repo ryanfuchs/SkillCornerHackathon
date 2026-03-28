@@ -48,7 +48,7 @@ function frameToPitchPlayers(frame: TrackingFrame): PitchPlayer[] {
 
 function frameToBall(
   frame: TrackingFrame,
-): { x: number; y: number } | null {
+): { x: number; y: number; z: number } | null {
   const { ball_data } = frame;
   if (
     !ball_data.is_detected ||
@@ -57,7 +57,9 @@ function frameToBall(
   ) {
     return null;
   }
-  return trackingToPitch(ball_data.x, ball_data.y);
+  const { x, y } = trackingToPitch(ball_data.x, ball_data.y);
+  const z = ball_data.z ?? 0;
+  return { x, y, z };
 }
 
 export function useMatchTracking() {
@@ -106,7 +108,7 @@ export function useMatchTracking() {
     if (!frames?.length) {
       return {
         players: [] as PitchPlayer[],
-        ball: null as { x: number; y: number } | null,
+        ball: null as { x: number; y: number; z: number } | null,
         frame: 0,
         timestamp: null as string | null,
       };

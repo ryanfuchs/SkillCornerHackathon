@@ -14,6 +14,11 @@ const matchData = {
   date: "Mar 28, 2026",
 };
 
+const FLAG_CH_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Flag_of_Switzerland.svg/960px-Flag_of_Switzerland.svg.png";
+const FLAG_DE_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Flag_of_Germany.svg/1280px-Flag_of_Germany.svg.png";
+
 function App() {
   const { players, ball, loadError, loaded } = useMatchTracking();
 
@@ -24,15 +29,37 @@ function App() {
           {matchData.competition} &mdash; {matchData.date}
         </p>
         <div className="flex items-center gap-6 mt-2">
-          <span className="text-6xl font-bold tracking-tight">
-            {matchData.homeTeam}
-          </span>
+          <div className="flex items-center gap-3">
+            <img
+              src={FLAG_CH_URL}
+              alt=""
+              width={44}
+              height={44}
+              className="h-11 w-11 shrink-0 rounded-sm border border-white object-cover shadow-sm"
+              loading="lazy"
+              decoding="async"
+            />
+            <span className="text-6xl font-bold tracking-tight">
+              {matchData.homeTeam}
+            </span>
+          </div>
           <span className="text-3xl font-light text-muted-foreground tabular-nums">
             {matchData.homeScore}&nbsp;&ndash;&nbsp;{matchData.awayScore}
           </span>
-          <span className="text-6xl font-bold tracking-tight">
-            {matchData.awayTeam}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-6xl font-bold tracking-tight">
+              {matchData.awayTeam}
+            </span>
+            <img
+              src={FLAG_DE_URL}
+              alt=""
+              width={73}
+              height={44}
+              className="h-11 w-auto shrink-0 rounded-sm border border-white object-cover shadow-sm aspect-[5/3]"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
         </div>
         <MomentumChart />
       </header>
