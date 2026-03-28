@@ -13,6 +13,7 @@ class IndicatorType(Enum):
     ACCELRATION = "acceleration"
     BALL_CHAOS = "ball_chaos"
     DEFENSIVE_LINE = "defensive_line"
+    LINE_TO_LINE_ACCELERATION = "line_to_line_acceleration"
 
 
 TIndicator = TypeVar("TIndicator", bound=IndicatorType)
@@ -99,5 +100,6 @@ class IndicatorAnalyzer(Generic[TIndicator]):
 PlayerClustersKind = Literal[IndicatorType.PLAYER_CLUSTERS]
 PositionChangeKind = Literal[IndicatorType.POSITION_CHANGE]
 AccelerationKind = Literal[IndicatorType.ACCELRATION]
-BallChaosKind = Literal[IndicatorType.BALL_CHAOS] # Haaroon ball speed height direction and proximity to goal
-DefensiveLineKind = Literal[IndicatorType.DEFENSIVE_LINE] # Haaroon variance of x and y axis
+BallChaosKind = Literal[IndicatorType.BALL_CHAOS]  # Haaroon ball speed height direction and proximity to goal
+DefensiveLineKind = Literal[IndicatorType.DEFENSIVE_LINE]  # Haaroon variance of x and y axis
+LineToLineAccelerationKind = Literal[IndicatorType.LINE_TO_LINE_ACCELERATION]
