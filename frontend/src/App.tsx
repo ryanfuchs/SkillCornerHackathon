@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MomentumChart } from '@/components/MomentumChart'
 import { PhaseBreakdownChart } from '@/components/PhaseBreakdownChart'
 import { PitchView } from '@/components/PitchView'
+import { VideoPlayer } from '@/components/VideoPlayer'
 import { useMatchTracking } from "@/hooks/useMatchTracking";
 
 const matchData = {
@@ -86,25 +87,14 @@ function App() {
           </CardContent>
         </Card>
 
-        <Card className="bg-transparent">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Phase Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-32 text-muted-foreground/30 text-sm">
-            coming soon
-          </CardContent>
-        </Card>
-
-        <Card className="bg-transparent">
-          <CardHeader>
+        <Card className="row-span-2 bg-transparent flex flex-col min-h-0">
+          <CardHeader className="shrink-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Video Player
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-center h-32 text-muted-foreground/30 text-sm">
-            coming soon
+          <CardContent className="flex-1 min-h-0 p-3">
+            <VideoPlayer />
           </CardContent>
         </Card>
 

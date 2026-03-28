@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   Area,
   CartesianGrid,
@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import type { MouseHandlerDataParam } from 'recharts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePlayback } from '@/context/PlaybackContext'
@@ -153,25 +154,6 @@ function chartRowsFromSeries(series: SeriesRow) {
   }))
 }
 
-/** Which phase row contains this bundle `frameIndex` (for syncing UI when scrubbing / playback). */
-function phaseIndexForBundleFrame(
-  frame: number,
-  phases: (PhaseRecord | LegacyPhaseMeta)[],
-): number {
-  if (phases.length === 0) return 0
-  for (let i = 0; i < phases.length; i++) {
-    const p = phases[i]
-    if (p.bundleStart == null || p.bundleEnd == null) continue
-    if (frame >= p.bundleStart && frame <= p.bundleEnd) return i
-  }
-  let best = 0
-  for (let i = 0; i < phases.length; i++) {
-    const p = phases[i]
-    if (p.bundleStart != null && p.bundleStart <= frame) best = i
-  }
-  return best
-}
-
 function chartRowsFromFrameSlice(
   fs: FrameSeries,
   bundleStart: number,
@@ -197,13 +179,80 @@ function chartRowsFromFrameSlice(
   return rows
 }
 
+type ChartRow = ReturnType<typeof chartRowsFromSeries>[number]
+
+function bundleIndexFromHoverState(
+  state: MouseHandlerDataParam,
+  rows: ChartRow[],
+  bundleStart: number,
+  bundleEnd: number,
+): number | null {
+  if (rows.length === 0) return null
+  const idx = state.activeTooltipIndex
+  if (typeof idx === 'number' && idx >= 0 && idx < rows.length) {
+    const t = rows[idx]!.t
+    return Math.max(bundleStart, Math.min(bundleEnd, bundleStart + t))
+  }
+  const label = state.activeLabel
+  if (typeof label === 'number' && Number.isFinite(label)) {
+    const bi = bundleStart + label
+    return Math.max(bundleStart, Math.min(bundleEnd, Math.round(bi)))
+  }
+  if (typeof label === 'string' && label !== '') {
+    const n = Number(label)
+    if (Number.isFinite(n)) {
+      const bi = bundleStart + n
+      return Math.max(bundleStart, Math.min(bundleEnd, Math.round(bi)))
+    }
+  }
+  return null
+}
+
+/** Which exported phase (order index) contains this bundle frame; gaps map to nearest timeline phase. */
+function phaseOrderIndexForBundleFrame(
+  phases: (PhaseRecord | LegacyPhaseMeta)[],
+  frame: number,
+): number {
+  const n = phases.length
+  if (n === 0) return 0
+
+  for (let i = 0; i < n; i++) {
+    const p = phases[i]!
+    const lo = p.bundleStart
+    const hi = p.bundleEnd
+    if (lo != null && hi != null && frame >= lo && frame <= hi) return i
+  }
+
+  const first = phases[0]!
+  if (first.bundleStart != null && frame < first.bundleStart) return 0
+
+  const last = phases[n - 1]!
+  if (last.bundleEnd != null && frame > last.bundleEnd) return n - 1
+
+  let best = 0
+  for (let i = 0; i < n; i++) {
+    const p = phases[i]!
+    if (p.bundleStart != null && p.bundleStart <= frame) best = i
+  }
+  return best
+}
+
 export function PhaseBreakdownChart() {
-  const { phaseIndex, frameIndex, setPhaseIndex, setFrameIndex } =
-    usePlayback();
-  const phases = payload.phases;
-  const n = phases.length;
-  const frameSeries = payload.frameSeries;
-  const chartStride = payload.phaseChartStride ?? 1;
+  const {
+    phaseIndex,
+    frameIndex,
+    setPhaseIndex,
+    setFrameIndex,
+    jumpToFrame,
+    pause,
+    resume,
+    isPlaying,
+  } = usePlayback()
+  const wasPlayingBeforeScrubRef = useRef(true)
+  const phases = payload.phases
+  const n = phases.length
+  const frameSeries = payload.frameSeries
+  const chartStride = payload.phaseChartStride ?? 1
 
   const safePhase = n === 0 ? 0 : Math.min(Math.max(0, phaseIndex), n - 1);
 
@@ -213,23 +262,23 @@ export function PhaseBreakdownChart() {
     }
   }, [phaseIndex, safePhase, setPhaseIndex]);
 
-  const phase = phases[safePhase];
-  const series = payload.seriesByPhaseOrder[String(safePhase)];
-
-  /** Keep selected phase aligned with global `frameIndex` (momentum scrub, playback, etc.). */
   useEffect(() => {
-    if (n === 0) return;
-    const i = phaseIndexForBundleFrame(frameIndex, phases);
-    setPhaseIndex((prev) => (prev !== i ? i : prev));
-  }, [frameIndex, n, phases, setPhaseIndex]);
+    if (n === 0) return
+    const want = phaseOrderIndexForBundleFrame(phases, frameIndex)
+    setPhaseIndex((cur) => (cur === want ? cur : want))
+  }, [frameIndex, n, phases, setPhaseIndex])
 
-  const goToPhase = (nextIndex: number) => {
-    const clamped = Math.max(0, Math.min(n - 1, nextIndex));
-    setPhaseIndex(clamped);
-    const p = phases[clamped];
-    if (p?.bundleStart != null) setFrameIndex(p.bundleStart);
-  };
-
+  const phase = phases[safePhase]
+  const series = payload.seriesByPhaseOrder[String(safePhase)]
+  const goToPhase = useCallback(
+    (nextIndex: number) => {
+      const clamped = Math.max(0, Math.min(n - 1, nextIndex))
+      setPhaseIndex(clamped)
+      const p = phases[clamped]
+      if (p?.bundleStart != null) jumpToFrame(p.bundleStart)
+    },
+    [jumpToFrame, n, phases, setPhaseIndex],
+  )
   const chartData = useMemo(() => {
     const fromSeries = chartRowsFromSeries(series);
     if (fromSeries.length > 0) return fromSeries;
@@ -270,6 +319,24 @@ export function PhaseBreakdownChart() {
           frameStart: (phase as LegacyPhaseMeta).frameStart,
           frameEnd: (phase as LegacyPhaseMeta).frameEnd,
         };
+
+  const handleChartMouseMove = useCallback(
+    (state: MouseHandlerDataParam) => {
+      if (bundleStart == null || bundleEnd == null) return
+      const b = bundleIndexFromHoverState(state, chartData, bundleStart, bundleEnd)
+      if (b != null) jumpToFrame(b)
+    },
+    [bundleStart, bundleEnd, chartData, jumpToFrame],
+  )
+
+  const handleChartAreaEnter = useCallback(() => {
+    wasPlayingBeforeScrubRef.current = isPlaying
+    pause()
+  }, [isPlaying, pause])
+
+  const handleChartAreaLeave = useCallback(() => {
+    if (wasPlayingBeforeScrubRef.current) resume()
+  }, [resume])
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -344,16 +411,18 @@ export function PhaseBreakdownChart() {
           No series for this phase
         </div>
       ) : (
-        <div className="h-72 w-full min-h-72 min-w-0 sm:h-80 sm:min-h-80">
+        <div
+          className="h-72 w-full min-h-72 min-w-0 sm:h-80 sm:min-h-80"
+          onMouseEnter={handleChartAreaEnter}
+          onMouseLeave={handleChartAreaLeave}
+        >
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={chartData}
               margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              onMouseMove={handleChartMouseMove}
             >
-              <CartesianGrid
-                stroke="hsl(var(--border))"
-                strokeDasharray="3 3"
-              />
+              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
               <XAxis
                 dataKey="t"
                 type="number"
