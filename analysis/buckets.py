@@ -59,7 +59,11 @@ def analyze_frame_buckets(frame_data: FrameData, config: BucketConfig) -> list[B
                 and bucket.y[0] <= player.y <= bucket.y[1]
             ):
                 bucket.players.append(player)
-    if frame_data.ball_data.is_detected:
+    if (
+        frame_data.ball_data.is_detected
+        and frame_data.ball_data.x is not None
+        and frame_data.ball_data.y is not None
+    ):
         for bucket in buckets:
             if ( #TODO: instead of iterating, use index by division of coordinates by step
                 bucket.x[0] <= frame_data.ball_data.x <= bucket.x[1]

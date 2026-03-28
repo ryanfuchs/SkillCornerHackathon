@@ -1,9 +1,9 @@
-
 from enum import Enum
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeVar, final
 
 from pydantic import BaseModel, Field
 
+from parsing.match import MatchBundle
 from parsing.tracking import FrameData
 
 
@@ -56,12 +56,41 @@ class IndicatorAnalyzer(Generic[TIndicator]):
     range types; a frame parameterized with a different `Literal[IndicatorType....]` will not match
     under static checking.
     """
+    def __init__(self, match_bundle: MatchBundle):
+        self.match_bundle = match_bundle
+        self.analyzed_frames = {}
+        self.analyzed_frame_ranges = {}
 
-    def analyze_frame(self, frame: FrameData) -> IndicatorFrameBase[TIndicator]:
+    def _analyze_frame(self, frame_index: int) -> IndicatorFrameBase[TIndicator]:
         raise NotImplementedError
 
+    @final
+    def analyze_frame(self, frame_index: int) -> IndicatorFrameBase[TIndicator]:
+        if self.analyzed_frames.get(frame_index) is not None:
+            return self.analyzed_frames[frame_index]
+        indicator_frame = self._analyze_frame(frame_index)
+        self.analyzed_frames[frame_index] = indicator_frame
+        return indicator_frame
+
+    def _analyze_frame_range(
+        self, start_frame_index: int, end_frame_index: int
+    ) -> IndicatorFrameRange[TIndicator]:
+        raise NotImplementedError
+
+    @final
     def analyze_frame_range(self, start_frame_index: int, end_frame_index: int) -> IndicatorFrameRange[TIndicator]:
-        raise NotImplementedError
+        if (
+            self.analyzed_frame_ranges.get((start_frame_index, end_frame_index))
+            is not None
+        ):
+            return self.analyzed_frame_ranges[(start_frame_index, end_frame_index)]
+        indicator_frame_range = self._analyze_frame_range(
+            start_frame_index, end_frame_index
+        )
+        self.analyzed_frame_ranges[(start_frame_index, end_frame_index)] = (
+            indicator_frame_range
+        )
+        return indicator_frame_range
 
 
 # Export for convenient annotations on concrete analyzers / frames.
