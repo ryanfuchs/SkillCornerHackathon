@@ -11,36 +11,27 @@ from analysis.indicators import (
     IndicatorType,
     PositionChangeKind,
 )
+from parsing.match import MatchBundle
 from parsing.tracking import FrameData
-from position_analysis import frame_to_positions
+from position_analysis import inferred_positions_for_frame
 
 # Upper bound on total grid movement: 22 players × max Euclidean step 4√2 ≈ 124.45.
 POSITION_CHANGE_MAX_TOTAL = 124.5
 
 
-def _xy_dict_from_frame_data(frame: FrameData) -> dict[int, tuple[float, float]]:
-    return {
-        p.player_id: (float(p.x), float(p.y))
-        for p in frame.player_data
-        if p.is_detected
-    }
-
-
-def _inferred_positions(frame: FrameData) -> dict[int, tuple[int, int]]:
-    xy = _xy_dict_from_frame_data(frame)
-    if not xy:
-        return {}
-    raw: dict[int, tuple[int, ...]] = frame_to_positions(dict(xy))
-    return {k: (int(v[0]), int(v[1])) for k, v in raw.items()}
-
-
 def _sum_position_changes(
     prev_frame: FrameData,
     curr_frame: FrameData,
+    *,
+    tactical_grid_cache: dict[int, dict[int, tuple[int, int]]] | None = None,
 ) -> float:
     try:
-        prev_pos = _inferred_positions(prev_frame)
-        curr_pos = _inferred_positions(curr_frame)
+        prev_pos = inferred_positions_for_frame(
+            prev_frame, tactical_grid_cache
+        )
+        curr_pos = inferred_positions_for_frame(
+            curr_frame, tactical_grid_cache
+        )
     except Exception:
         return 0.0
     common = prev_pos.keys() & curr_pos.keys()
@@ -70,6 +61,15 @@ class PositionChangeFrameRange(IndicatorFrameRange[PositionChangeKind]):
 
 class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
 
+    def __init__(
+        self,
+        match_bundle: MatchBundle,
+        *,
+        tactical_grid_cache: dict[int, dict[int, tuple[int, int]]] | None = None,
+    ) -> None:
+        super().__init__(match_bundle)
+        self._tactical_grid_cache = tactical_grid_cache
+
     @override
     def _analyze_frame(self, frame_index: int) -> PositionChangeFrame:
         frames = self.match_bundle.frames
@@ -78,7 +78,11 @@ class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
             total_change = 0.0
         else:
             prev = frames[frame_index - 1]
-            total_change = _sum_position_changes(prev, curr)
+            total_change = _sum_position_changes(
+                prev,
+                curr,
+                tactical_grid_cache=self._tactical_grid_cache,
+            )
         score = total_change / POSITION_CHANGE_MAX_TOTAL
         return PositionChangeFrame(
             frame_index=curr.frame,

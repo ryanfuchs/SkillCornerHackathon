@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 from math import hypot, cos, pi, acos
 import json
 import networkx as nx
 import heapq
 from scipy.spatial import Delaunay
 import pandas as pd
+
+from parsing.tracking import FrameData
 
 
 """Helper functions"""
@@ -447,13 +451,19 @@ def frame_to_positions(frame):
 
         return barycenters
 
-    def split_positions(frame, orientation, pos_dict, reps = 2):
+    def split_positions(frame, orientation, pos_dict, reps: int, sg_cache: dict) -> None:
         """Determines the position plot coordinates of all players in the desired 
         orientation.
          
         Note: the function edits pos_dict directly instead of returning a new 
         dictionary.
         """
+        def _cached_shape_graph(fc: dict) -> nx.Graph:
+            key = frozenset(fc.items())
+            if key not in sg_cache:
+                sg_cache[key] = frame_to_shape_graph(fc)
+            return sg_cache[key]
+
         # Check orientation
         if orientation == 'v':
             idx = 1
@@ -469,8 +479,8 @@ def frame_to_positions(frame):
             # Find the current frame without split off points
             frame_current = {pt : frame[pt] for pt in frame if pos_dict[pt][idx] == 0}
             
-            # Create shape graph
-            S_current = frame_to_shape_graph(frame_current)
+            # Create shape graph (memoized per distinct player subset within this frame)
+            S_current = _cached_shape_graph(frame_current)
 
             # Get barycenters, including sloped bridging edges
             B = find_barycenters(S_current, frame_current, norm_vec)
@@ -526,10 +536,40 @@ def frame_to_positions(frame):
     # Initialize position dictionary to save a player's position
     pos_dict = {p : [0,0] for p in frame.keys()}
 
-    # Update the position dictionary and return it (replace list with tuple for stability)
-    split_positions(frame, 'h', pos_dict)
-    split_positions(frame, 'v', pos_dict)
+    # One memo table for shape graphs across h/v passes and split iterations
+    sg_cache: dict[frozenset, nx.Graph] = {}
+    split_positions(frame, 'h', pos_dict, 2, sg_cache)
+    split_positions(frame, 'v', pos_dict, 2, sg_cache)
     return {p : tuple(pos_dict[p]) for p in pos_dict}
+
+
+def inferred_positions_for_frame(
+    frame: FrameData,
+    cache: dict[int, dict[int, tuple[int, int]]] | None = None,
+) -> dict[int, tuple[int, int]]:
+    """Tactical grid coordinates for detected players (via ``frame_to_positions``).
+
+    When ``cache`` is provided, results are keyed by ``frame.frame`` (tracking id) so
+    multiple analyzers can share one expensive shape-graph / Delaunay pass per frame.
+    """
+    fid = frame.frame
+    if cache is not None and fid in cache:
+        return cache[fid]
+
+    xy = {
+        p.player_id: (float(p.x), float(p.y))
+        for p in frame.player_data
+        if p.is_detected
+    }
+    if not xy:
+        out: dict[int, tuple[int, int]] = {}
+    else:
+        raw: dict[int, tuple[int, ...]] = frame_to_positions(dict(xy))
+        out = {k: (int(v[0]), int(v[1])) for k, v in raw.items()}
+
+    if cache is not None:
+        cache[fid] = out
+    return out
 
 
 """Read Skillcorner data"""

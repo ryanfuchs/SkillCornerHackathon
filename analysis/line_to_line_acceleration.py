@@ -17,7 +17,7 @@ from analysis.indicators import (
 )
 from parsing.match import MatchBundle, MatchData
 from parsing.tracking import FrameData
-from position_analysis import frame_to_positions
+from position_analysis import inferred_positions_for_frame
 
 # Kinematics: same nominal interval as ball_chaos (10 Hz extrapolated tracking).
 DT_SECONDS = 0.1
@@ -34,14 +34,6 @@ def _xy_dict_from_frame_data(frame: FrameData) -> dict[int, tuple[float, float]]
         for p in frame.player_data
         if p.is_detected
     }
-
-
-def _inferred_positions(frame: FrameData) -> dict[int, tuple[int, int]]:
-    xy = _xy_dict_from_frame_data(frame)
-    if not xy:
-        return {}
-    raw: dict[int, tuple[int, ...]] = frame_to_positions(dict(xy))
-    return {k: (int(v[0]), int(v[1])) for k, v in raw.items()}
 
 
 def _player_team_map(bundle: MatchBundle) -> dict[int, int]:
@@ -148,9 +140,15 @@ class LineToLineAccelerationFrameRange(IndicatorFrameRange[LineToLineAcceleratio
 
 class LineToLineAccelerationAnalyzer(IndicatorAnalyzer[LineToLineAccelerationKind]):
 
-    def __init__(self, match_bundle: MatchBundle):
+    def __init__(
+        self,
+        match_bundle: MatchBundle,
+        *,
+        tactical_grid_cache: dict[int, dict[int, tuple[int, int]]] | None = None,
+    ) -> None:
         super().__init__(match_bundle)
         self._team_map = _player_team_map(match_bundle)
+        self._tactical_grid_cache = tactical_grid_cache
 
     @override
     def _analyze_frame(self, frame_index: int) -> LineToLineAccelerationFrame:
@@ -176,7 +174,9 @@ class LineToLineAccelerationAnalyzer(IndicatorAnalyzer[LineToLineAccelerationKin
             return _empty_frame_result(curr)
 
         try:
-            inferred = _inferred_positions(curr)
+            inferred = inferred_positions_for_frame(
+                curr, self._tactical_grid_cache
+            )
         except Exception:
             return _empty_frame_result(curr)
 

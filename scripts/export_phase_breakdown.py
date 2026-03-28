@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -115,6 +116,7 @@ def _empty_series_row(
 
 
 def main() -> None:
+    t0 = time.perf_counter()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--match-json",
@@ -236,11 +238,14 @@ def main() -> None:
         min_players_threshold=2,
         running_median_window_size=100,
     )
+    tactical_grid_cache: dict[int, dict[int, tuple[int, int]]] = {}
     pc = PlayerClusterAnalyzer(bundle, pc_config)
-    pos = PositionChangeAnalyzer(bundle)
+    pos = PositionChangeAnalyzer(bundle, tactical_grid_cache=tactical_grid_cache)
     ball = BallChaosAnalyzer(bundle)
     dline = DefensiveLineAnalyzer(bundle)
-    l2l = LineToLineAccelerationAnalyzer(bundle)
+    l2l = LineToLineAccelerationAnalyzer(
+        bundle, tactical_grid_cache=tactical_grid_cache
+    )
 
     n_frames = len(frames)
     if args.max_phases is None:
@@ -392,6 +397,12 @@ def main() -> None:
         f"precomputed phase orders={precomputed_order_indices or '[]'})"
     )
     print(f"Wrote {out_frames} (frame_series_length={scan_end}/{n_frames})")
+
+    elapsed = time.perf_counter() - t0
+    if elapsed >= 60:
+        print(f"Export time: {int(elapsed // 60)}m {elapsed % 60:.1f}s", flush=True)
+    else:
+        print(f"Export time: {elapsed:.2f}s", flush=True)
 
 
 if __name__ == "__main__":
