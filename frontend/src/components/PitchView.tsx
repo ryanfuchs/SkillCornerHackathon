@@ -393,7 +393,7 @@ function FootballBall({
   });
 
   return (
-    <group position={[x, y, 0]}>
+    <group position={[x, -y, 0]}>
       {/* Drawn after players; depthTest off so it layers above player discs where they overlap. */}
       <mesh
         position={[0, 0, LINE_LIFT + 0.004]}
@@ -569,12 +569,12 @@ function PlayerCircle({
   radius = DEFAULT_PLAYER_RADIUS,
 }: Pick<PitchPlayer, "x" | "y" | "color" | "radius">) {
   const groupRef = useRef<THREE.Group>(null);
-  const target = useRef(new THREE.Vector3(x, y, PLAYER_LIFT));
-  const current = useRef(new THREE.Vector3(x, y, PLAYER_LIFT));
+  const target = useRef(new THREE.Vector3(x, -y, PLAYER_LIFT));
+  const current = useRef(new THREE.Vector3(x, -y, PLAYER_LIFT));
   const initialized = useRef(false);
 
   useLayoutEffect(() => {
-    target.current.set(x, y, PLAYER_LIFT);
+    target.current.set(x, -y, PLAYER_LIFT);
     if (!initialized.current) {
       initialized.current = true;
       const g = groupRef.current;
