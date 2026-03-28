@@ -153,6 +153,25 @@ function chartRowsFromSeries(series: SeriesRow) {
   }))
 }
 
+/** Which phase row contains this bundle `frameIndex` (for syncing UI when scrubbing / playback). */
+function phaseIndexForBundleFrame(
+  frame: number,
+  phases: (PhaseRecord | LegacyPhaseMeta)[],
+): number {
+  if (phases.length === 0) return 0
+  for (let i = 0; i < phases.length; i++) {
+    const p = phases[i]
+    if (p.bundleStart == null || p.bundleEnd == null) continue
+    if (frame >= p.bundleStart && frame <= p.bundleEnd) return i
+  }
+  let best = 0
+  for (let i = 0; i < phases.length; i++) {
+    const p = phases[i]
+    if (p.bundleStart != null && p.bundleStart <= frame) best = i
+  }
+  return best
+}
+
 function chartRowsFromFrameSlice(
   fs: FrameSeries,
   bundleStart: number,
@@ -179,32 +198,41 @@ function chartRowsFromFrameSlice(
 }
 
 export function PhaseBreakdownChart() {
-  const { phaseIndex, frameIndex, setPhaseIndex, setFrameIndex } = usePlayback()
-  const phases = payload.phases
-  const n = phases.length
-  const frameSeries = payload.frameSeries
-  const chartStride = payload.phaseChartStride ?? 1
+  const { phaseIndex, frameIndex, setPhaseIndex, setFrameIndex } =
+    usePlayback();
+  const phases = payload.phases;
+  const n = phases.length;
+  const frameSeries = payload.frameSeries;
+  const chartStride = payload.phaseChartStride ?? 1;
 
-  const safePhase = n === 0 ? 0 : Math.min(Math.max(0, phaseIndex), n - 1)
+  const safePhase = n === 0 ? 0 : Math.min(Math.max(0, phaseIndex), n - 1);
 
   useEffect(() => {
     if (safePhase !== phaseIndex) {
-      setPhaseIndex(safePhase)
+      setPhaseIndex(safePhase);
     }
-  }, [phaseIndex, safePhase, setPhaseIndex])
+  }, [phaseIndex, safePhase, setPhaseIndex]);
 
-  const phase = phases[safePhase]
-  const series = payload.seriesByPhaseOrder[String(safePhase)]
+  const phase = phases[safePhase];
+  const series = payload.seriesByPhaseOrder[String(safePhase)];
 
+  /** Keep selected phase aligned with global `frameIndex` (momentum scrub, playback, etc.). */
   useEffect(() => {
-    const p = phases[safePhase]
-    if (!p || p.bundleStart == null) return
-    setFrameIndex(p.bundleStart)
-  }, [safePhase, phases, setFrameIndex])
+    if (n === 0) return;
+    const i = phaseIndexForBundleFrame(frameIndex, phases);
+    setPhaseIndex((prev) => (prev !== i ? i : prev));
+  }, [frameIndex, n, phases, setPhaseIndex]);
+
+  const goToPhase = (nextIndex: number) => {
+    const clamped = Math.max(0, Math.min(n - 1, nextIndex));
+    setPhaseIndex(clamped);
+    const p = phases[clamped];
+    if (p?.bundleStart != null) setFrameIndex(p.bundleStart);
+  };
 
   const chartData = useMemo(() => {
-    const fromSeries = chartRowsFromSeries(series)
-    if (fromSeries.length > 0) return fromSeries
+    const fromSeries = chartRowsFromSeries(series);
+    if (fromSeries.length > 0) return fromSeries;
     if (
       frameSeries &&
       phase?.bundleStart != null &&
@@ -216,23 +244,21 @@ export function PhaseBreakdownChart() {
         phase.bundleStart,
         phase.bundleEnd,
         chartStride,
-      )
+      );
     }
-    return []
-  }, [series, frameSeries, phase, chartStride])
+    return [];
+  }, [series, frameSeries, phase, chartStride]);
 
-  const bundleStart = phase?.bundleStart ?? series?.bundleStart ?? null
-  const bundleEnd = phase?.bundleEnd ?? series?.bundleEnd ?? null
+  const bundleStart = phase?.bundleStart ?? series?.bundleStart ?? null;
+  const bundleEnd = phase?.bundleEnd ?? series?.bundleEnd ?? null;
 
   const playheadT =
-    bundleStart != null && bundleEnd != null
-      ? frameIndex - bundleStart
-      : null
+    bundleStart != null && bundleEnd != null ? frameIndex - bundleStart : null;
   const inPhase =
     playheadT != null &&
     playheadT >= 0 &&
     bundleEnd != null &&
-    frameIndex <= bundleEnd
+    frameIndex <= bundleEnd;
 
   const frameStartEnd =
     isPhaseRecord(phase) && phase.phaseOfPlay
@@ -243,18 +269,21 @@ export function PhaseBreakdownChart() {
       : {
           frameStart: (phase as LegacyPhaseMeta).frameStart,
           frameEnd: (phase as LegacyPhaseMeta).frameEnd,
-        }
+        };
 
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground truncate max-w-[min(100%,28rem)]">
-          {phase ? phaseLabel(phase) : 'No phase data'}
-          {bundleStart != null && frameStartEnd.frameStart != null && frameStartEnd.frameEnd != null && (
-            <span className="ml-2 tabular-nums opacity-80">
-              frames {frameStartEnd.frameStart}–{frameStartEnd.frameEnd} · bundle {bundleStart}–{bundleEnd}
-            </span>
-          )}
+          {phase ? phaseLabel(phase) : "No phase data"}
+          {bundleStart != null &&
+            frameStartEnd.frameStart != null &&
+            frameStartEnd.frameEnd != null && (
+              <span className="ml-2 tabular-nums opacity-80">
+                frames {frameStartEnd.frameStart}–{frameStartEnd.frameEnd} ·
+                bundle {bundleStart}–{bundleEnd}
+              </span>
+            )}
         </p>
         <div className="flex items-center gap-1 shrink-0">
           <Button
@@ -262,20 +291,20 @@ export function PhaseBreakdownChart() {
             variant="outline"
             size="icon-sm"
             disabled={safePhase <= 0}
-            onClick={() => setPhaseIndex((i) => Math.max(0, i - 1))}
+            onClick={() => goToPhase(safePhase - 1)}
             aria-label="Previous phase"
           >
             <ChevronLeft className="size-4" />
           </Button>
           <span className="text-xs text-muted-foreground tabular-nums px-1 min-w-[4.5rem] text-center">
-            {n === 0 ? '—' : `${safePhase + 1} / ${n}`}
+            {n === 0 ? "—" : `${safePhase + 1} / ${n}`}
           </span>
           <Button
             type="button"
             variant="outline"
             size="icon-sm"
             disabled={safePhase >= n - 1}
-            onClick={() => setPhaseIndex((i) => Math.min(n - 1, i + 1))}
+            onClick={() => goToPhase(safePhase + 1)}
             aria-label="Next phase"
           >
             <ChevronRight className="size-4" />
@@ -301,9 +330,7 @@ export function PhaseBreakdownChart() {
                 size="sm"
                 className="h-7 px-2 text-xs"
                 disabled={frameIndex >= bundleEnd}
-                onClick={() =>
-                  setFrameIndex((f) => Math.min(bundleEnd, f + 1))
-                }
+                onClick={() => setFrameIndex((f) => Math.min(bundleEnd, f + 1))}
               >
                 +1f
               </Button>
@@ -319,35 +346,41 @@ export function PhaseBreakdownChart() {
       ) : (
         <div className="h-72 w-full min-h-72 min-w-0 sm:h-80 sm:min-h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid
+                stroke="hsl(var(--border))"
+                strokeDasharray="3 3"
+              />
               <XAxis
                 dataKey="t"
                 type="number"
-                domain={['dataMin', 'dataMax']}
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                domain={["dataMin", "dataMax"]}
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                 label={{
-                  value: 'Frame offset in phase',
-                  position: 'insideBottom',
+                  value: "Frame offset in phase",
+                  position: "insideBottom",
                   offset: -2,
-                  style: { fill: 'hsl(var(--muted-foreground))', fontSize: 10 },
+                  style: { fill: "hsl(var(--muted-foreground))", fontSize: 10 },
                 }}
               />
               <YAxis
                 domain={[0, 1]}
                 width={36}
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                 tickCount={6}
               />
               <Tooltip
                 contentStyle={{
-                  background: 'hsl(var(--popover))',
-                  border: '1px solid hsl(var(--border))',
+                  background: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: 6,
                   fontSize: 12,
                 }}
                 formatter={(value) =>
-                  typeof value === 'number' ? [value.toFixed(3), ''] : ['', '']
+                  typeof value === "number" ? [value.toFixed(3), ""] : ["", ""]
                 }
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -380,5 +413,5 @@ export function PhaseBreakdownChart() {
         </div>
       )}
     </div>
-  )
+  );
 }
