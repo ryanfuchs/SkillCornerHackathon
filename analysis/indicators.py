@@ -11,6 +11,7 @@ class IndicatorType(Enum):
     PLAYER_CLUSTERS = "player_clusters"
     POSITION_CHANGE = "position_change"
     ACCELRATION = "acceleration"
+    BALL_CHAOS = "ball_chaos"
 
 
 TIndicator = TypeVar("TIndicator", bound=IndicatorType)
@@ -97,3 +98,4 @@ class IndicatorAnalyzer(Generic[TIndicator]):
 PlayerClustersKind = Literal[IndicatorType.PLAYER_CLUSTERS]
 PositionChangeKind = Literal[IndicatorType.POSITION_CHANGE]
 AccelerationKind = Literal[IndicatorType.ACCELRATION]
+BallChaosKind = Literal[IndicatorType.BALL_CHAOS]
