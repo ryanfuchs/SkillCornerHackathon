@@ -74,24 +74,72 @@ const CAMERA_DEFAULT_FOV = 20;
 /** Straight-down overhead: high +Y, look at pitch center; Z is screen-up to avoid gimbal lock. */
 const CAMERA_OVERHEAD_Y = 118;
 
+/** Higher = snappier camera blend between default and overhead (roughly ~1/e in 1/λ seconds). */
+const CAMERA_VIEW_SMOOTHING = 11;
+
+function applyOverheadToScratch(
+  sc: THREE.PerspectiveCamera,
+  overhead: boolean,
+  targetPos: THREE.Vector3,
+  targetQuat: THREE.Quaternion,
+  targetFov: { current: number },
+) {
+  if (overhead) {
+    sc.position.set(0, CAMERA_OVERHEAD_Y, 0);
+    sc.up.set(0, 0, -1);
+    sc.lookAt(0, 0, 0);
+    targetFov.current = 38;
+  } else {
+    sc.position.set(...CAMERA_DEFAULT_POSITION);
+    sc.up.set(0, 1, 0);
+    sc.lookAt(0, 0, 0);
+    targetFov.current = CAMERA_DEFAULT_FOV;
+  }
+  targetPos.copy(sc.position);
+  targetQuat.copy(sc.quaternion);
+}
+
 function CameraRig({ overhead }: { overhead: boolean }) {
-  const { camera, size } = useThree();
+  const { camera } = useThree();
+  const targetPos = useRef(new THREE.Vector3());
+  const targetQuat = useRef(new THREE.Quaternion());
+  const targetFov = useRef(CAMERA_DEFAULT_FOV);
+  const scratchCam = useMemo(() => new THREE.PerspectiveCamera(), []);
+  const didInitialSnap = useRef(false);
+  const localYWorld = useRef(new THREE.Vector3());
+
   useLayoutEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
-    if (overhead) {
-      cam.position.set(0, CAMERA_OVERHEAD_Y, 0);
-      /** Inverted from default +Z so the overhead framing is rotated 180° on screen. */
-      cam.up.set(0, 0, -1);
-      cam.lookAt(0, 0, 0);
-      cam.fov = 38;
-    } else {
-      cam.position.set(...CAMERA_DEFAULT_POSITION);
-      cam.up.set(0, 1, 0);
-      cam.lookAt(0, 0, 0);
-      cam.fov = CAMERA_DEFAULT_FOV;
+    applyOverheadToScratch(
+      scratchCam,
+      overhead,
+      targetPos.current,
+      targetQuat.current,
+      targetFov,
+    );
+    if (!didInitialSnap.current) {
+      cam.position.copy(targetPos.current);
+      cam.quaternion.copy(targetQuat.current);
+      cam.up.copy(scratchCam.up);
+      cam.fov = targetFov.current;
+      cam.updateProjectionMatrix();
+      didInitialSnap.current = true;
     }
+  }, [camera, overhead, scratchCam]);
+
+  useFrame((_, delta) => {
+    if (!didInitialSnap.current) return;
+    const cam = camera as THREE.PerspectiveCamera;
+    const dt = Math.min(delta, 0.08);
+    const t = 1 - Math.exp(-CAMERA_VIEW_SMOOTHING * dt);
+    cam.position.lerp(targetPos.current, t);
+    cam.quaternion.slerp(targetQuat.current, t);
+    cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov.current, t);
+    localYWorld.current.set(0, 1, 0).applyQuaternion(cam.quaternion);
+    cam.up.copy(localYWorld.current);
     cam.updateProjectionMatrix();
-  }, [camera, overhead, size.width, size.height]);
+  });
+
   return null;
 }
 
