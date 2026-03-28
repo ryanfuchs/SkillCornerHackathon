@@ -9,6 +9,7 @@ Run from repo root (default: every phase in the match; full bundle frame scan):
   uv run python scripts/export_phase_breakdown.py
   uv run python scripts/export_phase_breakdown.py --precompute-phases 0,2,5 --stride 2
   uv run python scripts/export_phase_breakdown.py --max-phases 10
+  uv run python scripts/export_phase_breakdown.py --start-phase 50 --max-phases 20
 """
 
 from __future__ import annotations
@@ -134,6 +135,15 @@ def main() -> None:
         help="Per-bundle-frame indicator arrays JSON path",
     )
     parser.add_argument(
+        "--start-phase",
+        type=int,
+        default=0,
+        help=(
+            "0-based match timeline index: skip phases before this, then apply --max-phases. "
+            "Exported orderIndex 0 is match phase start_phase."
+        ),
+    )
+    parser.add_argument(
         "--max-phases",
         type=int,
         default=None,
@@ -171,15 +181,35 @@ def main() -> None:
 
     idx_map = _frame_id_to_index_map(frames)
     total_phases_in_match = len(bundle.phases)
-    phase_list = list(bundle.phases)
+    if args.start_phase < 0:
+        raise SystemExit("--start-phase must be >= 0")
+    if args.start_phase >= total_phases_in_match:
+        raise SystemExit(
+            f"--start-phase {args.start_phase} out of range "
+            f"(match has {total_phases_in_match} phases, valid 0..{total_phases_in_match - 1})"
+        )
+
+    phase_list = list(bundle.phases)[args.start_phase :]
     if args.max_phases is not None:
         phase_list = phase_list[: max(0, args.max_phases)]
+
+    if not phase_list:
+        raise SystemExit(
+            "No phases to export (--start-phase / --max-phases produced an empty list)."
+        )
 
     n_export_phases = len(phase_list)
     if args.max_phases is not None:
         print(
             f"Phases: exporting {n_export_phases} of {total_phases_in_match} in match "
-            f"(first {n_export_phases} in timeline order; --max-phases={args.max_phases}).",
+            f"(start_phase={args.start_phase}, --max-phases={args.max_phases}).",
+            flush=True,
+        )
+    elif args.start_phase > 0:
+        print(
+            f"Phases: exporting {n_export_phases} phases "
+            f"(match indices {args.start_phase}..{args.start_phase + n_export_phases - 1}; "
+            f"--start-phase={args.start_phase}).",
             flush=True,
         )
     else:
@@ -250,7 +280,8 @@ def main() -> None:
         by_indicator["position_change"][i] = float(pos.analyze_frame(i).score)
         by_indicator["ball_chaos"][i] = float(ball.analyze_frame(fid).score)
         by_indicator["defensive_line"][i] = float(dline.analyze_frame(fid).score)
-        by_indicator["line_to_line_acceleration"][i] = float(l2l.analyze_frame(i).score)
+        by_indicator["line_to_line_acceleration"][i] = float(
+            l2l.analyze_frame(i).score)
 
         done = i + 1
         pct = (100 * done) // scan_end if scan_end else 100
@@ -324,9 +355,11 @@ def main() -> None:
         "note": (
             "Companion file lists per-bundle-frame scores. "
             "frameIndex in playback is the bundle index (0..nFrames-1). "
-            "frameSeriesLength may be < nFrames when using --max-phases. "
+            "frameSeriesLength may be < nFrames when using --max-phases or --start-phase. "
+            "Match phase index = startPhase + orderIndex. "
             "IndicatorType.ACCELRATION has no analyzer yet — omitted."
         ),
+        "startPhase": args.start_phase,
         "nFrames": n_frames,
         "frameSeriesLength": scan_end,
         "phases": phases_out,
@@ -338,6 +371,7 @@ def main() -> None:
         "nFrames": n_frames,
         "frameSeriesLength": scan_end,
         "indicatorIds": INDICATOR_IDS,
+        "startPhase": args.start_phase,
         "phasesFile": phases_name,
         "note": (
             "Parallel arrays: index i is the bundle index. "
