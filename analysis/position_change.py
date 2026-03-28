@@ -62,9 +62,10 @@ class PositionChangeFrame(IndicatorFrameBase[PositionChangeKind]):
 
 
 class PositionChangeFrameRange(IndicatorFrameRange[PositionChangeKind]):
-    """Range aggregate for bursts: ``score`` is peak frame (max); ``score_p90`` is the 90th percentile."""
+    """``score`` = peak frame (max); ``score_p90`` = 90th percentile; ``score_mean`` = mean over the phase."""
 
     score_p90: float = Field(ge=0, le=1)
+    score_mean: float = Field(ge=0, le=1)
 
 
 class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
@@ -98,6 +99,7 @@ class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
                 indicator_frames=[],
                 score=0.0,
                 score_p90=0.0,
+                score_mean=0.0,
                 indicator_type=IndicatorType.POSITION_CHANGE,
             )
 
@@ -110,6 +112,7 @@ class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
                 indicator_frames=[],
                 score=0.0,
                 score_p90=0.0,
+                score_mean=0.0,
                 indicator_type=IndicatorType.POSITION_CHANGE,
             )
 
@@ -119,6 +122,7 @@ class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
         scores = [f.score for f in indicator_frames]
         burst_max = float(max(scores))
         p90 = float(np.percentile(scores, 90.0))
+        mean_score = float(np.mean(scores))
 
         return PositionChangeFrameRange(
             start_frame_index=lo,
@@ -126,5 +130,6 @@ class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
             indicator_frames=indicator_frames,
             score=burst_max,
             score_p90=p90,
+            score_mean=mean_score,
             indicator_type=IndicatorType.POSITION_CHANGE,
         )
