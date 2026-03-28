@@ -10,7 +10,7 @@ def main() -> None:
     md = bundle.match_data
     home, away = md.home_team.short_name, md.away_team.short_name
 
-    target_frame = 7567
+    target_frame = 18000
     
     ball_analyzer = BallChaosAnalyzer(bundle)
     chaos_result = ball_analyzer.analyze_frame(target_frame)
