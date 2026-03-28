@@ -116,7 +116,7 @@ const tickMinutes = [0, 15, 30, 45, 60, 75, 90]
 
 export function MomentumChart() {
   return (
-    <div className="w-4/5 mx-auto mt-6">
+    <div className="mx-auto mt-3 w-4/5">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
