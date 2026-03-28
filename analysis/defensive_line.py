@@ -1,4 +1,4 @@
-from position_analysis import frame_to_positions, get_player_team 
+from position_analysis import frame_to_positions
 
 import numpy as np
 from pydantic import Field
@@ -28,11 +28,9 @@ class DefensiveLineAnalyzer(IndicatorAnalyzer[DefensiveLineKind]):
     def __init__(self, match_bundle: MatchBundle):
         super().__init__(match_bundle)
         self._frames_by_id = {f.frame: f for f in self.match_bundle.frames}
-        
-        
-        match_id = self.match_bundle.match_data.id
-        team_df = get_player_team(match_id)
-        self.player_to_team = dict(zip(team_df["id"], team_df["team_id"]))
+        self.player_to_team = {
+            p.id: p.team_id for p in self.match_bundle.match_data.players
+        }
 
     def _analyze_frame(self, frame_index: int) -> DefensiveLineFrame:
         current_frame = self._frames_by_id.get(frame_index)
