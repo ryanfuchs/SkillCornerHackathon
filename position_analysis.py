@@ -541,7 +541,7 @@ def read_jsonl_to_dataframe(match_id, frame):
     """
 
     # Find file name
-    filename = f"{match_id}_tracking_extrapolated.jsonl"
+    filename = f"data/{match_id}_tracking_extrapolated.jsonl"
 
     # Open the JSONL file and read each line
     data = []
