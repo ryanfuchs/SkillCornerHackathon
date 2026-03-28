@@ -1,7 +1,8 @@
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { MomentumChart } from "@/components/MomentumChart";
-import { PitchView } from "@/components/PitchView";
+import { MomentumChart } from '@/components/MomentumChart'
+import { PhaseBreakdownChart } from '@/components/PhaseBreakdownChart'
+import { PitchView } from '@/components/PitchView'
 
 const matchData = {
   homeTeam: "SUI",
@@ -69,14 +70,14 @@ function App() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3 bg-transparent">
-          <CardHeader>
+        <Card className="col-span-3 bg-transparent flex flex-col min-h-0">
+          <CardHeader className="shrink-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Phase Breakdown
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-center h-40 text-muted-foreground/30 text-sm">
-            coming soon
+          <CardContent className="flex-1 min-h-0 p-0 pt-2 px-4 pb-4 w-full">
+            <PhaseBreakdownChart />
           </CardContent>
         </Card>
       </main>
