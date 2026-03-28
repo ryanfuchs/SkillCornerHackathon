@@ -1,8 +1,8 @@
 
 from enum import Enum
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from parsing.tracking import FrameData
 
@@ -49,10 +49,22 @@ class IndicatorFrameRange(BaseModel, Generic[TIndicator]):
 class IndicatorAnalyzer(Generic[TIndicator]):
     """
     A common base for all indicator analyzers.
-    An indicator analyzer is a class that analyzes a frame or a range of frames for an indicator.
+
+    Use a **literal enum member** as the type argument, e.g.
+    `IndicatorAnalyzer[Literal[IndicatorType.PLAYER_CLUSTERS]]`, so frame/range return types are
+    tied to that single indicator. Subclasses should then use the same literal on their frame and
+    range types; a frame parameterized with a different `Literal[IndicatorType....]` will not match
+    under static checking.
     """
+
     def analyze_frame(self, frame: FrameData) -> IndicatorFrameBase[TIndicator]:
         raise NotImplementedError
 
     def analyze_frame_range(self, start_frame_index: int, end_frame_index: int) -> IndicatorFrameRange[TIndicator]:
         raise NotImplementedError
+
+
+# Export for convenient annotations on concrete analyzers / frames.
+PlayerClustersKind = Literal[IndicatorType.PLAYER_CLUSTERS]
+PositionChangeKind = Literal[IndicatorType.POSITION_CHANGE]
+AccelerationKind = Literal[IndicatorType.ACCELRATION]
