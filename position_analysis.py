@@ -572,7 +572,7 @@ def get_player_team(match_id):
     """
 
     # Find file name
-    filename = f"{match_id}_match.json"
+    filename = f"data/{match_id}_match.json"
 
     # Open the file
     data = []
