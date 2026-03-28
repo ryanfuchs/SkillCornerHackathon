@@ -130,6 +130,8 @@ class PlayerGraph:
                 if d > 10.0:
                     continue
                 ds.append(1.0 / (1.0 + d / sigma))
+        if len(ds) == 0:
+            return 0.0
         return float(np.median(sorted(ds)))
 
 
