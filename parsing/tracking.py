@@ -44,7 +44,6 @@ class FrameData(BaseModel):
     image_corners_projection: ImageCornersProjection
     player_data: list[PlayerData]
 
-
 def parse_jsonl_frames(path: str | Path) -> list[FrameData]:
     """Read a JSONL file (one JSON object per line) and return a list of FrameData."""
     df = pd.read_json(Path(path), lines=True)
