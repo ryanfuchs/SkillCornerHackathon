@@ -6,6 +6,11 @@ lead_to_goal, score-changing shots, and supplemental frames for goals where the 
 score column lags (e.g. ~41', 45+1', ~65' vs minute_start in file).
 
 Shots: every other player_possession end_type=shot, excluding frames near a goal marker.
+
+Run from repo root:
+  uv run python pipeline/extract_timeline_moments.py
+
+Or use ``pipeline/run_all.py`` to regenerate all frontend data assets.
 """
 from __future__ import annotations
 
@@ -13,10 +18,11 @@ import csv
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-CSV_PATH = ROOT / "src/data/2060235_dynamic_events.csv"
-OUT_PATH = ROOT / "src/data/timelineKeyMoments.json"
-SCORE_BREAKPOINTS_PATH = ROOT / "src/data/scoreBreakpoints.json"
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_DATA_DIR = _REPO_ROOT / "frontend" / "src" / "data"
+CSV_PATH = _DATA_DIR / "2060235_dynamic_events.csv"
+OUT_PATH = _DATA_DIR / "timelineKeyMoments.json"
+SCORE_BREAKPOINTS_PATH = _DATA_DIR / "scoreBreakpoints.json"
 
 SHOT_EXCLUDE_IF_NEAR_GOAL = 75
 # When score updates on a pass/carry, attach to nearest shot within this window (10 Hz ≈ 90 s).
@@ -115,6 +121,9 @@ def build_score_breakpoints(
 
 
 def main() -> None:
+    if not CSV_PATH.is_file():
+        raise SystemExit(f"Dynamic events CSV not found: {CSV_PATH}")
+
     with CSV_PATH.open(newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
@@ -195,6 +204,7 @@ def main() -> None:
 
     moments.sort(key=lambda m: m["frame"])
 
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(
         json.dumps(
             {

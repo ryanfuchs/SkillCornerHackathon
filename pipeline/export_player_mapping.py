@@ -6,8 +6,10 @@ By default this is “static” info only (match metadata + physical per-player 
 so it does not need to scan the huge ``*_tracking_extrapolated.jsonl``.
 
 Usage:
-  uv run python scripts/export_player_mapping.py
-  uv run python scripts/export_player_mapping.py --match-json data/2060235_match.json
+  uv run python pipeline/export_player_mapping.py
+  uv run python pipeline/export_player_mapping.py --match-json data/2060235_match.json
+
+Or use ``pipeline/run_all.py`` to regenerate all frontend data assets.
 """
 
 from __future__ import annotations

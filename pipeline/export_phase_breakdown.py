@@ -7,10 +7,12 @@ Writes:
     player_clusters_best_player_ids: per-frame list of SkillCorner player ids in the best cluster).
 
 Run from repo root (default: every phase in the match; full bundle frame scan):
-  uv run python scripts/export_phase_breakdown.py
-  uv run python scripts/export_phase_breakdown.py --precompute-phases 0,2,5 --stride 2
-  uv run python scripts/export_phase_breakdown.py --max-phases 10
-  uv run python scripts/export_phase_breakdown.py --start-phase 50 --max-phases 20
+  uv run python pipeline/export_phase_breakdown.py
+  uv run python pipeline/export_phase_breakdown.py --precompute-phases 0,2,5 --stride 2
+  uv run python pipeline/export_phase_breakdown.py --max-phases 10
+  uv run python pipeline/export_phase_breakdown.py --start-phase 50 --max-phases 20
+
+Or use ``pipeline/run_all.py`` to regenerate all frontend data assets.
 """
 
 from __future__ import annotations
