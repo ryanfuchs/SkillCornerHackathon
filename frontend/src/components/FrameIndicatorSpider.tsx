@@ -43,7 +43,7 @@ const AXES: {
   { key: 'defensive_line', subject: 'Defensive\nline', color: '#38bdf8' },
   {
     key: 'line_to_line_acceleration',
-    subject: 'Line-to-line\naccel.',
+    subject: 'Line to line\naccel.',
     color: '#e11d48',
   },
 ]
@@ -288,14 +288,15 @@ function FrameIndicatorSpiderBody({
   return (
     <div className={cn('h-full min-h-[14rem] w-full', className)}>
       <p className="px-1 pb-2 text-[12px] font-medium tracking-[-0.01em] text-[#86868b] tabular-nums dark:text-[#98989d]">
-        Frame{' '}
-        {playbackFrameCount > 0
-          ? `${Math.min(frameIndex, rowCap - 1)} / ${rowCap - 1}`
-          : `— / ${rowCap - 1}`}
-        <span className="mx-1.5 font-normal text-[#aeaeb2] dark:text-[#7c7c80]">
-          ·
+        <span className="tabular-nums">
+          Frame{' '}
+          {playbackFrameCount > 0
+            ? `${Math.min(frameIndex, rowCap - 1)} / ${rowCap - 1}`
+            : `— / ${rowCap - 1}`}
         </span>
-        Normalized scores 0–1, smoothed
+        <span className="font-normal text-[#aeaeb2] dark:text-[#7c7c80]">
+          . Values are normalized from zero to one and smoothed.
+        </span>
       </p>
       <div className="h-[min(18rem,calc(100%-2rem))] min-h-[12rem] w-full">
         <svg
@@ -305,7 +306,7 @@ function FrameIndicatorSpiderBody({
           role="img"
           aria-label="Five indicator radar chart, values 0 to 1"
         >
-          <title>Match analytics radar (five indicators, 0–1)</title>
+          <title>Match analytics radar with five indicators from zero to one</title>
           <SpiderRadarChrome />
           <SpiderDataLayer
             values={smoothed}

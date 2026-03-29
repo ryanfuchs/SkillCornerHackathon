@@ -144,7 +144,7 @@ const INDICATOR_STYLES: { id: string; label: string; color: string }[] = [
   { id: 'position_change', label: 'Position change', color: '#22c55e' },
   { id: 'ball_chaos', label: 'Ball chaos', color: '#f97316' },
   { id: 'defensive_line', label: 'Defensive line', color: '#38bdf8' },
-  { id: 'line_to_line_acceleration', label: 'Line-to-line accel.', color: '#e11d48' },
+  { id: 'line_to_line_acceleration', label: 'Line to line accel.', color: '#e11d48' },
 ]
 
 function PhaseIndicatorLegendStrip({ className }: { className?: string }) {
@@ -154,7 +154,7 @@ function PhaseIndicatorLegendStrip({ className }: { className?: string }) {
         'm-0 flex list-none flex-wrap gap-2 p-0',
         className,
       )}
-      aria-label="Indicators (0–1 scale)"
+      aria-label="Indicators on a zero to one scale"
     >
       {INDICATOR_STYLES.map(({ id, label, color }) => (
         <li
@@ -542,7 +542,7 @@ export function PhaseBreakdownChart() {
                     {phaseHeader.start || '—'}
                   </span>
                   <span className="mx-1.5 text-muted-foreground" aria-hidden>
-                    ·
+                    ,
                   </span>
                   <span className="font-medium text-foreground">End </span>
                   <span className="text-foreground">
@@ -554,9 +554,9 @@ export function PhaseBreakdownChart() {
                 frameStartEnd.frameStart != null &&
                 frameStartEnd.frameEnd != null && (
                   <p className="text-xs text-muted-foreground tabular-nums">
-                    Tracking frames {frameStartEnd.frameStart}–
-                    {frameStartEnd.frameEnd} · bundle indices {bundleStart}–
-                    {bundleEnd}
+                    Tracking frames {frameStartEnd.frameStart} through{' '}
+                    {frameStartEnd.frameEnd}. Bundle indices {bundleStart} through{' '}
+                    {bundleEnd}.
                   </p>
                 )}
             </div>

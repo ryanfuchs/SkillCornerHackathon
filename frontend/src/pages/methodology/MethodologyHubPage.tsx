@@ -44,10 +44,10 @@ export function MethodologyHubPage() {
           How the analysis works
         </h1>
         <p className="mt-4 max-w-[720px] text-[19px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
-          The match view combines SkillCorner-style tracking, a timeline scrubber,
-          and precomputed indicator series. Each metric is scored per frame on a
-          0–1 scale, then aggregated inside phase windows for the breakdown
-          chart.
+          The match view layers SkillCorner style tracking, a timeline scrubber,
+          and precomputed indicator series. Every metric is scored per frame on a
+          scale from zero to one, then rolled up inside phase windows for the
+          breakdown chart.
         </p>
         <div className="mt-14 grid gap-6 sm:grid-cols-2">
           <TopicCard
@@ -58,7 +58,7 @@ export function MethodologyHubPage() {
           <TopicCard
             to="/methodology/indicators"
             title="The five indicators"
-            description="Player clusters, position change, ball chaos, defensive line, and line-to-line acceleration—what each score means."
+            description="Player clusters, position change, ball chaos, defensive line, and line to line acceleration. Each entry explains in plain language what the score is capturing."
           />
         </div>
       </main>

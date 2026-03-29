@@ -17,13 +17,6 @@ import { SiteLayout } from '@/components/layout/SiteLayout'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const nav = [
-  { id: 'core', label: 'Core idea' },
-  { id: 'origin', label: 'How we built it' },
-  { id: 'indicators', label: 'Indicators' },
-  { id: 'technical', label: 'Stack' },
-] as const
-
 function SectionShell({
   id,
   eyebrow,
@@ -72,28 +65,12 @@ export function ConceptPage() {
         />
 
         <main className="relative mx-auto max-w-[1060px] px-5 pb-28 pt-10 sm:px-6 sm:pt-14">
-          {/* Jump nav */}
-          <nav
-            className="sticky top-[3.25rem] z-30 -mx-1 mb-10 flex flex-wrap justify-center gap-1.5 rounded-full border border-black/[0.06] bg-[#fbfbfd]/75 px-2 py-2 shadow-sm backdrop-blur-xl dark:border-white/[0.08] dark:bg-black/40 sm:justify-start"
-            aria-label="On this page"
-          >
-            {nav.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className="rounded-full px-3 py-1.5 text-[12px] font-medium text-[#424245] transition-colors hover:bg-black/[0.06] hover:text-[#1d1d1f] dark:text-[#a1a1a6] dark:hover:bg-white/10 dark:hover:text-[#f5f5f7]"
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-
           {/* Hero */}
           <header className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-12">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/60 px-3 py-1 text-[11px] font-semibold text-[#547792] shadow-sm backdrop-blur dark:border-white/[0.08] dark:bg-white/[0.06]">
                 <Sparkles className="size-3.5" aria-hidden />
-                Chaos-aware analytics
+                Chaos aware analytics
               </div>
               <h1 className="mt-5 text-[clamp(2.25rem,6vw,3.25rem)] font-semibold leading-[1.08] tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7]">
                 Quantify the moments a match{' '}
@@ -103,9 +80,9 @@ export function ConceptPage() {
                 .
               </h1>
               <p className="mt-5 max-w-[540px] text-[18px] leading-relaxed text-[#6e6e73] sm:text-[19px] dark:text-[#a1a1a6]">
-                Beyond possession and xG: frame-by-frame tracking indicators that
-                spike when structure breaks, the ball goes erratic, and lines
-                accelerate into each other.
+                Alongside possession and expected goals we track the match frame
+                by frame. Indicators spike when structure breaks, the ball turns
+                erratic, and opposing lines accelerate into one another.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -132,8 +109,8 @@ export function ConceptPage() {
             <div className="relative rounded-[1.35rem] border border-black/[0.06] bg-white/50 p-6 shadow-[0_8px_40px_-20px_rgba(0,0,0,0.2)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-white/[0.05]">
               <MorphingMeshVisual className="mx-auto w-full max-w-[340px]" />
               <p className="mt-4 text-center text-[13px] leading-snug text-[#86868b] dark:text-[#98989d]">
-                Shape graphs from Delaunay triangulation — tactical lines emerge
-                from geometry, not nominal formations.
+                Delaunay triangulation builds the shape graph so tactical lines
+                come from measured geometry instead of a nominal formation label.
               </p>
               <div className="mt-6 rounded-2xl border border-black/[0.05] bg-black/[0.02] p-4 dark:border-white/[0.06] dark:bg-white/[0.04]">
                 <LiveChaosStrip />
@@ -143,32 +120,32 @@ export function ConceptPage() {
 
           <SectionShell
             id="core"
-            eyebrow="01 — Philosophy"
+            eyebrow="01 Philosophy"
             title="The core idea"
           >
             <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
               <div className="space-y-4 text-[17px] leading-relaxed text-[#424245] dark:text-[#d2d2d7]">
                 <p>
-                  Modern analytics overflow with possession, pass completion, and
-                  expected goals. Football is still a game of{' '}
+                  Modern dashboards already stress possession, pass completion,
+                  and expected goals. The sport still turns on{' '}
                   <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                     sudden transitions
                   </strong>
-                  : counters, errors, and movement that disorder the defending
-                  team.
+                  . Counters, mistakes, and coordinated movement can disorder a
+                  defense in seconds.
                 </p>
                 <p>
-                  We visualize that disorder with tracking-driven indicators that
+                  We visualize that disorder with tracking driven indicators that
                   score how defensive structure collapses, how wildly the ball
-                  moves, and how player lines explode — mathematically, at each
-                  instant of the match.
+                  moves, and how player lines separate, at every instant of the
+                  match and with explicit geometry behind each value.
                 </p>
               </div>
               <ul className="space-y-3 rounded-2xl border border-black/[0.06] bg-white/55 p-5 dark:border-white/[0.08] dark:bg-white/[0.04]">
                 {[
-                  { icon: Zap, text: 'Counter-attacks & broken rest-defense' },
-                  { icon: Activity, text: 'Erratic ball paths vs. calm control' },
-                  { icon: Layers, text: 'Shape integrity in real space & time' },
+                  { icon: Zap, text: 'Counter attacks and broken rest defense' },
+                  { icon: Activity, text: 'Erratic ball paths versus calm control' },
+                  { icon: Layers, text: 'Shape integrity in real space and time' },
                 ].map(({ icon: Icon, text }) => (
                   <li key={text} className="flex gap-3 text-[16px] text-[#1d1d1f] dark:text-[#f5f5f7]">
                     <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#1a3263]/10 text-[#1a3263] dark:bg-[#fab95b]/15 dark:text-[#fab95b]">
@@ -205,35 +182,36 @@ export function ConceptPage() {
 
           <SectionShell
             id="origin"
-            eyebrow="02 — Method"
+            eyebrow="02 Method"
             title="How we came up with it"
           >
             <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
               <div className="space-y-4 text-[17px] leading-relaxed text-[#424245] dark:text-[#d2d2d7]">
                 <p>
-                  On video, the biggest threats appear when play snaps from order
-                  to transition. Nominal formations mislead: a 4-3-3 on paper
-                  rarely matches live geometry.
+                  On video you see it clearly. The dangerous moments are when
+                  play flips from settled shape into a transition. What is
+                  printed on the teamsheet is rarely where players actually
+                  stand.
                 </p>
                 <p>
                   We use{' '}
                   <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                     Delaunay triangulation
                   </strong>{' '}
-                  to build a dynamic shape graph — a mesh between players every
-                  frame — and derive tactical layers (defense, midfield, attack)
-                  from pure spatial relationships.
+                  to link players into a mesh each frame, then read defense,
+                  midfield, and attack off that geometry instead of a formation
+                  name.
                 </p>
                 <p>
-                  That continuity lets us measure when a team&apos;s structure
-                  physically breaks, not when a label says it might.
+                  So we track when the shape actually comes apart, not when a
+                  tag on a broadcast says it might.
                 </p>
               </div>
               <div className="rounded-[1.25rem] border border-black/[0.06] bg-gradient-to-br from-white/80 to-[#e8e2db]/40 p-6 dark:border-white/[0.08] dark:from-white/[0.08] dark:to-[#1a3263]/20">
                 <div className="flex items-center gap-3 text-[#1a3263] dark:text-[#fab95b]">
                   <Triangle className="size-8 shrink-0" strokeWidth={1.25} aria-hidden />
                   <span className="text-[18px] font-semibold leading-snug text-[#1d1d1f] dark:text-[#f5f5f7]">
-                    Triangles → layers → integrity
+                    Triangles, layers, integrity
                   </span>
                 </div>
                 <MorphingMeshVisual className="mt-5 w-full max-w-[280px]" />
@@ -243,16 +221,13 @@ export function ConceptPage() {
 
           <SectionShell
             id="indicators"
-            eyebrow="03 — Models"
+            eyebrow="03 Models"
             title="Chaos indicators"
           >
             <p className="max-w-[720px] text-[17px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
-              Five complementary scores, each in{' '}
-              <span className="whitespace-nowrap font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
-                [0, 1]
-              </span>
-              , computed from SkillCorner-style tracking. Together they feed the
-              charts and radar you see in the match view.
+              Five complementary scores, each normalized from zero to one, come
+              straight from SkillCorner style tracking. Together they power the
+              charts and radar inside the match view.
             </p>
             <div className="mt-10">
               <IndicatorExplorer />
@@ -261,7 +236,7 @@ export function ConceptPage() {
 
           <SectionShell
             id="technical"
-            eyebrow="04 — Implementation"
+            eyebrow="04 Implementation"
             title="Technical stack"
           >
             <div className="grid gap-5 sm:grid-cols-2">
@@ -271,24 +246,24 @@ export function ConceptPage() {
                   title: 'Tactical mapping',
                   body: (
                     <>
-                      Delaunay triangulation (
+                      Delaunay triangulation in{' '}
                       <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">
                         position_analysis.py
-                      </code>
-                      ) groups players into moving tactical lines — independent of
-                      nominal formation.
+                      </code>{' '}
+                      groups players into moving tactical lines that do not depend
+                      on a nominal formation label.
                     </>
                   ),
                 },
                 {
                   icon: Radio,
                   title: 'Frontend',
-                  body: 'React + Vite dashboard; tracking JSONL streamed via ?url imports and useMatchTracking so ~100MB files never block the main thread.',
+                  body: 'The interface pairs React with Vite. Tracking arrives as JSONL through url imports and useMatchTracking so very large files never freeze the main thread.',
                 },
                 {
                   icon: Link2,
                   title: 'Synchronized UI',
-                  body: 'PitchView (2D pitch, 10 Hz), timeline, phase chart, and radar share global playback context — scrub once, everything follows.',
+                  body: 'PitchView renders the two dimensional pitch at ten hertz next to the timeline, phase chart, and radar. One shared playback clock means a single scrub keeps every surface aligned.',
                 },
                 {
                   icon: Layers,
@@ -301,7 +276,7 @@ export function ConceptPage() {
                       >
                         Timeline &amp; sync
                       </Link>
-                      {' · '}
+                      {' and '}
                       <Link
                         to="/methodology/indicators"
                         className="font-medium text-[#0066cc] underline-offset-2 hover:underline dark:text-[#2997ff]"

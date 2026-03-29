@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { IndicatorMetricMiniPitch } from '@/components/concept/IndicatorMetricMiniPitch'
 import { SiteLayout } from '@/components/layout/SiteLayout'
 
 function Section({
@@ -32,21 +33,22 @@ export function IndicatorsExplainedPage() {
           <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
             analysis/
           </code>
-          . Each analyzer produces a per-frame score in{' '}
-          <span className="whitespace-nowrap">[0, 1]</span>, exported into the
-          JSON the phase chart reads.
+          . Each analyzer writes one score per frame on a scale from zero to
+          one. The phase chart reads those values from the exported JSON.
         </p>
 
         <Section title="Player clusters">
+          <IndicatorMetricMiniPitch variant="player_clusters" className="max-w-[min(100%,280px)]" />
           <p>
-            For every frame, pairwise distances between detected outfield players
-            are turned into proximity scores{' '}
+            Every frame begins with pairwise distances between detected outfield
+            players. Each pair within ten metres gets a proximity score{' '}
             <span className="whitespace-nowrap font-mono text-[15px]">
               1 / (1 + d/σ)
             </span>{' '}
-            with σ = 1&nbsp;m, ignoring pairs farther than 10&nbsp;m. The frame
-            score is the median of those pairwise scores, then smoothed with a
-            running average over recent frames so the trace is less noisy.
+            with σ set to one metre. Pairs beyond ten metres are ignored. The
+            frame score is the median of the remaining pairwise scores. A short
+            running average over recent frames smooths the trace so it is easier
+            to read.
           </p>
           <p>
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
@@ -58,72 +60,81 @@ export function IndicatorsExplainedPage() {
         </Section>
 
         <Section title="Position change">
+          <IndicatorMetricMiniPitch variant="position_change" className="max-w-[min(100%,280px)]" />
           <p>
-            Players are mapped to a discrete tactical grid (inferred positions)
-            for the current and previous frame. For everyone visible in both
-            frames, we sum the Euclidean distance between grid coordinates
-            (equivalent to total “steps” on the grid).
+            Players land on a discrete tactical grid of inferred positions in
+            the current frame and again in the previous frame. For every player
+            visible in both snapshots we add the Euclidean distance between the
+            two grid cells, which behaves like counting total steps across the
+            squad.
           </p>
           <p>
-            That raw sum is normalized by a fixed upper bound and exposed as a{' '}
-            <span className="whitespace-nowrap">0–1</span> score.{' '}
+            We divide that raw sum by a fixed ceiling and publish the result as a
+            score from zero to one.{' '}
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
             </strong>{' '}
-            means more collective positional churn frame-to-frame.
+            values mean the group moved more collectively from one frame to the
+            next.
           </p>
         </Section>
 
         <Section title="Ball chaos">
+          <IndicatorMetricMiniPitch variant="ball_chaos" className="max-w-[min(100%,280px)]" />
           <p>
-            A composite of four components when the ball is detected: height
-            (capped at 3&nbsp;m), proximity to the nearest goal (closer → higher
-            intensity), speed from frame-to-frame (10&nbsp;Hz → m/s, scaled to a
-            cap around 80&nbsp;km/h), and alignment of ball motion toward goal
-            (cosine-style direction term).
+            When the ball is detected we blend four ingredients. Height matters
+            up to a cap of three metres. Distance to the nearest goal raises the
+            score when play creeps into dangerous territory. Speed comes from
+            differences between consecutive samples at ten hertz, expressed in
+            metres per second and scaled toward a ceiling near eighty kilometres
+            per hour. A direction term rewards velocity that points toward goal,
+            similar to a cosine between motion and the goalward vector.
           </p>
           <p>
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
             </strong>{' '}
-            values flag moments that are fast, elevated, goal-near, or directed
-            dangerously—useful for highlighting chaotic attacking actions.
+            values highlight stretches that feel fast, aerial, close to goal, or
+            aimed into the box, which is where chaotic attacking play usually
+            shows up.
           </p>
         </Section>
 
         <Section title="Defensive line">
+          <IndicatorMetricMiniPitch variant="defensive_line" className="max-w-[min(100%,280px)]" />
           <p>
-            Given possession, the defending team’s outfield players are placed
-            on a tactical shape graph. The metric inspects the “line” structure
-            (tactical x-bands) of those defenders and scores qualities like line
-            jaggedness and spacing consistency.
+            Whenever we know who has the ball, the defending outfield players sit
+            on a tactical shape graph. The metric studies the deepest line in
+            tactical depth bands and measures how even the spacing is and how
+            smooth the line looks in depth.
           </p>
           <p>
-            If possession or shape inference is missing, the score is zero.{' '}
+            Missing possession or shape inference forces the score to zero.{' '}
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
             </strong>{' '}
-            values correspond to a more organized defensive line under the model’s
-            geometric rules.
+            values describe a defensive line that looks more orderly under the
+            geometry we encode in the model.
           </p>
         </Section>
 
-        <Section title="Line-to-line acceleration">
+        <Section title="Line to line acceleration">
+          <IndicatorMetricMiniPitch variant="line_to_line_acceleration" className="max-w-[min(100%,280px)]" />
           <p>
-            For the team in possession, players on the most advanced tactical
-            line are compared to opponents on the deepest line. We estimate
-            accelerations from positional change at 0.1&nbsp;s steps, compare
-            mean forward acceleration of the offensive line versus the defensive
-            line, and map the difference into{' '}
-            <span className="whitespace-nowrap">[0, 1]</span> with a fixed bias
-            and scale.
+            For the team in possession we take the most advanced tactical line of
+            outfielders and compare it with the deepest line on the defending
+            side. Accelerations come from positional change in steps of one tenth
+            of a second. We compare mean forward acceleration on the attacking
+            line with the same quantity on the defensive line, then map the gap
+            onto a scale from zero to one using a fixed offset and gain.
           </p>
           <p>
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
             </strong>{' '}
-            values mean the attacking line is accelerating forward relative to
-            the back line—pressing the defensive shape kinematically.
+            values mean the attack is surging forward faster than the back line
+            is responding, which is the kinematic signature of pressing space
+            behind the defense.
           </p>
         </Section>
       </main>

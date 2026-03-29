@@ -28,23 +28,25 @@ export function TimelineExplainedPage() {
             Match timeline
           </h2>
           <p className="mt-3 text-[17px] leading-relaxed text-[#424245] dark:text-[#d2d2d7]">
-            The horizontal bar uses the same 0–1 mapping as before: only live
-            play in period&nbsp;1 then period&nbsp;2, with halftime collapsed to
-            a single seam. Kickoff is on the left and full time on the right.
+            The horizontal bar reuses the zero to one mapping from earlier builds.
+            Only live minutes from period one and period two appear, with halftime
+            collapsed to a thin seam. Kickoff sits on the left edge and full time
+            on the right.
           </p>
           <p className="mt-3 text-[17px] leading-relaxed text-[#424245] dark:text-[#d2d2d7]">
-            Dots are{' '}
+            Dots mark{' '}
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               key moments
             </strong>{' '}
-            derived from{' '}
+            parsed from{' '}
             <code className="rounded bg-black/[0.05] px-1 text-[15px] dark:bg-white/10">
               2060235_dynamic_events.csv
             </code>
-            : goals (merged <code className="text-[15px]">lead_to_goal</code>{' '}
-            clusters) and shots (merged <code className="text-[15px]">lead_to_shot</code>
-            ). Click or drag the track to seek; the playhead and video stay
-            locked to broadcast time.
+            . Goals come from merged <code className="text-[15px]">lead_to_goal</code>{' '}
+            clusters and shots from merged{' '}
+            <code className="text-[15px]">lead_to_shot</code> clusters. Click or
+            drag the track to seek and the playhead stays glued to the broadcast
+            clock together with the video.
           </p>
 
           <h2 className="mt-14 text-[28px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7]">
@@ -64,17 +66,18 @@ export function TimelineExplainedPage() {
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               strided
             </strong>{' '}
-            (every Nth frame) for performance; hovering still resolves to the
-            nearest real frame for playback sync.
+            so only every Nth frame renders, which keeps the chart responsive.
+            Hovering still snaps to the nearest real frame so playback stays
+            truthful.
           </p>
 
           <h2 className="mt-14 text-[28px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7]">
             Pitch coordinates
           </h2>
           <p className="mt-3 text-[17px] leading-relaxed text-[#424245] dark:text-[#d2d2d7]">
-            Tracking uses SkillCorner-style field axes; the 3D pitch view swaps
-            axes so <em>x</em> runs across the pitch and <em>y</em> along it,
-            matching the visual layout of the viewer.
+            Tracking follows SkillCorner style field axes. The three dimensional
+            pitch view swaps coordinates so <em>x</em> runs across the pitch and{' '}
+            <em>y</em> runs along it, which mirrors what you see in the viewer.
           </p>
         </Prose>
       </main>
