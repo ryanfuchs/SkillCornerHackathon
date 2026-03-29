@@ -181,6 +181,28 @@ export function ConceptPage() {
             </div>
           </SectionShell>
 
+          <figure
+            id="footage"
+            className="scroll-mt-28 mx-auto my-12 w-full max-w-xl overflow-hidden rounded-xl border border-black/[0.06] bg-[#0a0a0b] shadow-[0_10px_40px_-20px_rgba(0,0,0,0.22)] dark:border-white/[0.08] dark:shadow-[0_12px_36px_-18px_rgba(0,0,0,0.55)] sm:my-16 sm:max-w-2xl"
+          >
+            <div className="relative aspect-video w-full">
+              <video
+                className="absolute inset-0 h-full w-full object-contain"
+                src="/Team-Video.mp4"
+                controls
+                playsInline
+                preload="metadata"
+              >
+                Your browser does not support embedded video.
+              </video>
+            </div>
+            <figcaption className="border-t border-white/[0.08] bg-[#141416] px-3 py-2.5 text-center sm:px-4">
+              <span className="text-[12px] font-semibold tracking-tight text-[#f5f5f7]">
+                This is our idea and the team behind it
+              </span>
+            </figcaption>
+          </figure>
+
           <SectionShell
             id="origin"
             eyebrow="02 — Method"
