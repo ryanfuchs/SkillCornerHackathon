@@ -1,20 +1,21 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePlayback } from '@/context/PlaybackContext'
+import type { MomentumTimeline } from '@/hooks/useMatchTracking'
 
-// Momentum 0–1 per minute, minute 0–90
+// Momentum 0–1 per minute, minute 0–90 (placeholder curve sampled at broadcast minutes).
 const momentumData: { minute: number; value: number }[] = [
-  { minute: 0,  value: 0.30 },
-  { minute: 1,  value: 0.33 },
-  { minute: 2,  value: 0.38 },
-  { minute: 3,  value: 0.44 },
-  { minute: 4,  value: 0.50 },
-  { minute: 5,  value: 0.55 },
-  { minute: 6,  value: 0.60 },
-  { minute: 7,  value: 0.63 },
-  { minute: 8,  value: 0.65 },
-  { minute: 9,  value: 0.62 },
+  { minute: 0, value: 0.3 },
+  { minute: 1, value: 0.33 },
+  { minute: 2, value: 0.38 },
+  { minute: 3, value: 0.44 },
+  { minute: 4, value: 0.5 },
+  { minute: 5, value: 0.55 },
+  { minute: 6, value: 0.6 },
+  { minute: 7, value: 0.63 },
+  { minute: 8, value: 0.65 },
+  { minute: 9, value: 0.62 },
   { minute: 10, value: 0.58 },
   { minute: 11, value: 0.53 },
   { minute: 12, value: 0.48 },
@@ -24,14 +25,14 @@ const momentumData: { minute: number; value: number }[] = [
   { minute: 16, value: 0.36 },
   { minute: 17, value: 0.34 },
   { minute: 18, value: 0.32 },
-  { minute: 19, value: 0.30 },
+  { minute: 19, value: 0.3 },
   { minute: 20, value: 0.28 },
   { minute: 21, value: 0.26 },
   { minute: 22, value: 0.24 },
   { minute: 23, value: 0.22 },
   { minute: 24, value: 0.21 },
-  { minute: 25, value: 0.20 },
-  { minute: 26, value: 0.20 },
+  { minute: 25, value: 0.2 },
+  { minute: 26, value: 0.2 },
   { minute: 27, value: 0.19 },
   { minute: 28, value: 0.18 },
   { minute: 29, value: 0.17 },
@@ -40,14 +41,14 @@ const momentumData: { minute: number; value: number }[] = [
   { minute: 32, value: 0.19 },
   { minute: 33, value: 0.22 },
   { minute: 34, value: 0.26 },
-  { minute: 35, value: 0.30 },
+  { minute: 35, value: 0.3 },
   { minute: 36, value: 0.35 },
-  { minute: 37, value: 0.40 },
+  { minute: 37, value: 0.4 },
   { minute: 38, value: 0.45 },
-  { minute: 39, value: 0.50 },
+  { minute: 39, value: 0.5 },
   { minute: 40, value: 0.54 },
   { minute: 41, value: 0.57 },
-  { minute: 42, value: 0.60 },
+  { minute: 42, value: 0.6 },
   { minute: 43, value: 0.62 },
   { minute: 44, value: 0.64 },
   { minute: 45, value: 0.65 },
@@ -55,13 +56,13 @@ const momentumData: { minute: number; value: number }[] = [
   { minute: 47, value: 0.72 },
   { minute: 48, value: 0.75 },
   { minute: 49, value: 0.78 },
-  { minute: 50, value: 0.80 },
+  { minute: 50, value: 0.8 },
   { minute: 51, value: 0.82 },
   { minute: 52, value: 0.83 },
   { minute: 53, value: 0.84 },
   { minute: 54, value: 0.84 },
   { minute: 55, value: 0.83 },
-  { minute: 56, value: 0.80 },
+  { minute: 56, value: 0.8 },
   { minute: 57, value: 0.75 },
   { minute: 58, value: 0.69 },
   { minute: 59, value: 0.63 },
@@ -69,7 +70,7 @@ const momentumData: { minute: number; value: number }[] = [
   { minute: 61, value: 0.52 },
   { minute: 62, value: 0.47 },
   { minute: 63, value: 0.43 },
-  { minute: 64, value: 0.40 },
+  { minute: 64, value: 0.4 },
   { minute: 65, value: 0.37 },
   { minute: 66, value: 0.34 },
   { minute: 67, value: 0.31 },
@@ -80,12 +81,12 @@ const momentumData: { minute: number; value: number }[] = [
   { minute: 72, value: 0.22 },
   { minute: 73, value: 0.21 },
   { minute: 74, value: 0.21 },
-  { minute: 75, value: 0.20 },
+  { minute: 75, value: 0.2 },
   { minute: 76, value: 0.22 },
   { minute: 77, value: 0.26 },
-  { minute: 78, value: 0.30 },
+  { minute: 78, value: 0.3 },
   { minute: 79, value: 0.35 },
-  { minute: 80, value: 0.40 },
+  { minute: 80, value: 0.4 },
   { minute: 81, value: 0.44 },
   { minute: 82, value: 0.47 },
   { minute: 83, value: 0.49 },
@@ -109,54 +110,55 @@ const VIEW_TOP = 20
 const VIEW_BOX = `-2 -${VIEW_TOP} ${W + 4} ${H + VIEW_TOP + 2}` as const
 const TRACK_PX = H + VIEW_TOP
 
-function toX(minute: number) {
-  return (minute / 90) * W
-}
+const STRIDE = 6
+
 function toY(value: number) {
   return baseY - value * chartH
 }
 
-const pts = momentumData.map((d) => ({ x: toX(d.minute), y: toY(d.value) }))
-const polyline = pts.map((p) => `${p.x},${p.y}`).join(' ')
-const last = pts[pts.length - 1]!
-const first = pts[0]!
-const areaPoints = `${polyline} ${last.x},${baseY} ${first.x},${baseY}`
-
-const tickMinutes = [0, 15, 30, 45, 60, 75, 90]
-
-/** Chart x ∈ [0, W] → bundle frame index (10 Hz timeline). */
-function xToFrameIndex(x: number, playbackFrameCount: number) {
-  if (playbackFrameCount <= 0) return 0
-  const f = Math.max(0, Math.min(1, x / W))
-  const max = playbackFrameCount - 1
-  return Math.min(max, Math.floor(f * playbackFrameCount))
+function momentumValueAtMatchMinute(matchMinute: number): number {
+  const i = Math.min(90, Math.max(0, Math.round(matchMinute)))
+  return momentumData[i]!.value
 }
 
-/** Bundle frame → x on chart (linear over full timeline). */
-function frameIndexToX(frameIndex: number, playbackFrameCount: number) {
-  if (playbackFrameCount <= 1) return 0
-  const f = frameIndex / (playbackFrameCount - 1)
-  return f * W
+function buildLinePaths(
+  timeline: MomentumTimeline,
+): { d1: string; d2: string } {
+  const { chartT, matchMinutes, p1s, p1e, p2s, p2e } = timeline
+  const seg1: string[] = []
+  const seg2: string[] = []
+
+  const pushPoint = (
+    bucket: string[],
+    i: number,
+    isFirst: { v: boolean },
+  ) => {
+    const m = matchMinutes[i]!
+    if (m < 0) return
+    const x = chartT[i]! * W
+    const y = toY(momentumValueAtMatchMinute(m))
+    if (isFirst.v) {
+      bucket.push(`M ${x} ${y}`)
+      isFirst.v = false
+    } else bucket.push(`L ${x} ${y}`)
+  }
+
+  const first1 = { v: true }
+  for (let i = p1s; i <= p1e; i += STRIDE) pushPoint(seg1, i, first1)
+  if (p1e >= p1s && (p1e - p1s) % STRIDE !== 0) pushPoint(seg1, p1e, first1)
+
+  const first2 = { v: true }
+  for (let i = p2s; i <= p2e; i += STRIDE) pushPoint(seg2, i, first2)
+  if (p2e >= p2s && (p2e - p2s) % STRIDE !== 0) pushPoint(seg2, p2e, first2)
+
+  return { d1: seg1.join(' '), d2: seg2.join(' ') }
 }
 
-/** Match clock aligned to chart 0–90′: wall time from scrub position. */
-function formatClockFromChartX(x: number) {
-  const f = Math.max(0, Math.min(1, x / W))
-  const totalSeconds = f * 90 * 60
-  const m = Math.floor(totalSeconds / 60)
-  const s = Math.floor(totalSeconds % 60)
-  return `${m}:${String(s).padStart(2, '0')}`
+type Props = {
+  timeline: MomentumTimeline | null
 }
 
-/** Wall time from bundle frame at 10 Hz (for playhead label). */
-function formatClockFromFrame(frameIndex: number) {
-  const totalSeconds = frameIndex / 10
-  const m = Math.floor(totalSeconds / 60)
-  const s = Math.floor(totalSeconds % 60)
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
-export function MomentumChart() {
+export function MomentumChart({ timeline }: Props) {
   const {
     frameIndex,
     playbackFrameCount,
@@ -166,8 +168,38 @@ export function MomentumChart() {
     resume,
   } = usePlayback()
   const [hoverX, setHoverX] = useState<number | null>(null)
-  /** Hit target for x-mapping (track only; same width as SVG). */
   const trackRef = useRef<HTMLDivElement>(null)
+
+  const linePaths = useMemo(
+    () => (timeline ? buildLinePaths(timeline) : { d1: '', d2: '' }),
+    [timeline],
+  )
+
+  const w1Px = timeline ? timeline.w1Norm * W : W * 0.5
+
+  const halfTicks = useMemo(() => {
+    if (!timeline) return []
+    const { w1Norm, duration1Min, duration2Min } = timeline
+    const markFirstHalf = [1, 15, 30, 45]
+    /** Broadcast minute marks (45′ kickoff of 2H through 90′). */
+    const markSecondHalfBroadcast = [45, 60, 75, 90]
+    const out: { key: string; label: string; pct: number }[] = []
+    const d1 = Math.max(duration1Min, 0.01)
+    const d2 = Math.max(duration2Min, 0.01)
+    for (const tm of markFirstHalf) {
+      const t01 = Math.min(1, (tm / d1) * w1Norm)
+      out.push({ key: `h1-${tm}`, label: `${tm}'`, pct: t01 * 100 })
+    }
+    for (const bm of markSecondHalfBroadcast) {
+      const offsetIn2H = bm - 45
+      const t01 = Math.min(
+        1,
+        w1Norm + (offsetIn2H / d2) * (1 - w1Norm),
+      )
+      out.push({ key: `h2-${bm}`, label: `${bm}'`, pct: t01 * 100 })
+    }
+    return out
+  }, [timeline])
 
   const clientToSvgX = useCallback((clientX: number) => {
     const el = trackRef.current
@@ -184,26 +216,34 @@ export function MomentumChart() {
   const onChartLeave = () => setHoverX(null)
 
   const onChartClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!timeline || playbackFrameCount <= 0) return
     const x = clientToSvgX(e.clientX)
-    jumpToFrame(xToFrameIndex(x, playbackFrameCount))
+    const t01 = x / W
+    jumpToFrame(timeline.frameIndexAtChartT(t01))
   }
 
+  const playT01 =
+    timeline && playbackFrameCount > 0
+      ? timeline.chartT[Math.min(frameIndex, timeline.chartT.length - 1)]!
+      : null
   const playX =
-    playbackFrameCount > 1
-      ? frameIndexToX(frameIndex, playbackFrameCount)
+    playT01 != null && playbackFrameCount > 0
+      ? playT01 * W
       : playbackFrameCount === 1
         ? W / 2
         : null
 
   const hoverFrame =
-    hoverX != null && playbackFrameCount > 0
-      ? xToFrameIndex(hoverX, playbackFrameCount)
+    hoverX != null && timeline && playbackFrameCount > 0
+      ? timeline.frameIndexAtChartT(hoverX / W)
       : null
 
   const hoverPct = hoverX != null ? (hoverX / W) * 100 : null
 
   const matchClockLabel =
-    playbackFrameCount > 0 ? formatClockFromFrame(frameIndex) : '—'
+    timeline && playbackFrameCount > 0
+      ? timeline.formatClockForFrame(frameIndex)
+      : '—'
 
   return (
     <div
@@ -221,61 +261,69 @@ export function MomentumChart() {
           preserveAspectRatio="none"
           className="pointer-events-none absolute inset-0 block overflow-visible"
         >
-        <defs>
-          <linearGradient id="momentumGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#a855f7" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.15" />
-          </linearGradient>
-        </defs>
-
-        {/* half-time dashed line */}
-        <line
-          x1={toX(45)} y1={PAD_TOP}
-          x2={toX(45)} y2={baseY}
-          stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 3"
-        />
-
-        {/* filled area */}
-        <polygon points={areaPoints} fill="url(#momentumGrad)" />
-
-        {/* line */}
-        <polyline
-          points={polyline}
-          fill="none"
-          stroke="#a855f7"
-          strokeWidth="2"
-          strokeOpacity="0.8"
-          strokeLinejoin="round"
-        />
-
-        {/* Current playback (10 Hz timeline) */}
-        {playX != null && playbackFrameCount > 0 && (
-          <g pointerEvents="none">
+          {/* Half-time boundary */}
+          {timeline ? (
             <line
-              x1={playX} y1={PAD_TOP}
-              x2={playX} y2={baseY}
-              stroke="hsl(var(--foreground))"
-              strokeWidth="1.25"
-              strokeOpacity="0.55"
+              x1={w1Px}
+              y1={PAD_TOP}
+              x2={w1Px}
+              y2={baseY}
+              stroke="hsl(var(--border))"
+              strokeWidth="1"
+              strokeDasharray="4 3"
             />
-            <text
-              x={playX}
-              y={PAD_TOP - 1}
-              textAnchor="middle"
-              fill="hsl(var(--foreground))"
-              fontSize="10"
-              opacity={0.75}
-              className="tabular-nums"
-            >
-              {formatClockFromFrame(frameIndex)}
-            </text>
-          </g>
-        )}
+          ) : null}
 
-      </svg>
+          {linePaths.d1 ? (
+            <path
+              d={linePaths.d1}
+              fill="none"
+              stroke="hsl(var(--foreground))"
+              strokeWidth="1.75"
+              strokeOpacity="0.85"
+              strokeLinecap="round"
+              strokeLinejoin="miter"
+            />
+          ) : null}
+          {linePaths.d2 ? (
+            <path
+              d={linePaths.d2}
+              fill="none"
+              stroke="hsl(var(--foreground))"
+              strokeWidth="1.75"
+              strokeOpacity="0.85"
+              strokeLinecap="round"
+              strokeLinejoin="miter"
+            />
+          ) : null}
 
-        {/* HTML/CSS playhead — theme colors + outline so it reads on the purple fill */}
-        {hoverPct != null && hoverX != null && (
+          {playX != null && playbackFrameCount > 0 && timeline ? (
+            <g pointerEvents="none">
+              <line
+                x1={playX}
+                y1={PAD_TOP}
+                x2={playX}
+                y2={baseY}
+                stroke="hsl(var(--foreground))"
+                strokeWidth="1.25"
+                strokeOpacity="0.55"
+              />
+              <text
+                x={playX}
+                y={PAD_TOP - 1}
+                textAnchor="middle"
+                fill="hsl(var(--foreground))"
+                fontSize="10"
+                opacity={0.75}
+                className="tabular-nums"
+              >
+                {timeline.formatClockForFrame(frameIndex)}
+              </text>
+            </g>
+          ) : null}
+        </svg>
+
+        {hoverPct != null && hoverX != null && timeline ? (
           <div
             className="pointer-events-none absolute inset-0 z-20 overflow-visible"
             aria-hidden
@@ -289,12 +337,14 @@ export function MomentumChart() {
             >
               <div className="mb-0.5 flex shrink-0 flex-col items-center">
                 <span className="whitespace-nowrap rounded bg-background/95 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground shadow-sm ring-1 ring-border/80">
-                  {formatClockFromChartX(hoverX)}
-                  {hoverFrame != null && (
+                  {hoverFrame != null
+                    ? timeline.formatClockForFrame(hoverFrame)
+                    : '—'}
+                  {hoverFrame != null ? (
                     <span className="font-normal text-muted-foreground">
                       {` · f${hoverFrame}`}
                     </span>
-                  )}
+                  ) : null}
                 </span>
                 <div
                   className="h-0 w-0 border-x-[6px] border-x-transparent border-t-[8px] border-t-foreground"
@@ -304,18 +354,17 @@ export function MomentumChart() {
               <div className="min-h-[24px] w-[3px] flex-1 rounded-[1px] bg-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.45)]" />
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* x-axis labels as HTML so they're never clipped */}
       <div className="relative w-full h-5 mt-1">
-        {tickMinutes.map((m) => (
+        {halfTicks.map((tk) => (
           <span
-            key={m}
+            key={tk.key}
             className="absolute text-xs text-muted-foreground -translate-x-1/2"
-            style={{ left: `${(m / 90) * 100}%` }}
+            style={{ left: `${tk.pct}%` }}
           >
-            {m}'
+            {tk.label}
           </span>
         ))}
       </div>

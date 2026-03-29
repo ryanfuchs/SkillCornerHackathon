@@ -8,6 +8,7 @@ import trackingUrl from "@/data/2060235_tracking_extrapolated.jsonl?url";
 export type TrackingFrame = {
   frame: number;
   timestamp?: string | null;
+  period?: number | null;
   ball_data: {
     x: number | null;
     y: number | null;
@@ -60,6 +61,132 @@ function frameToBall(
   const { x, y } = trackingToPitch(ball_data.x, ball_data.y);
   const z = ball_data.z ?? 0;
   return { x, y, z };
+}
+
+/** Normalized x (0–1) and helpers for the header momentum strip (two halves, real play only). */
+export type MomentumTimeline = {
+  chartT: Float32Array;
+  /** SkillCorner match-minute (~0–46 first half, ~45–93 second); -1 if missing. */
+  matchMinutes: Float32Array;
+  p1s: number;
+  p1e: number;
+  p2s: number;
+  p2e: number;
+  /** Width share of first half in [0,1] (rest is second half). */
+  w1Norm: number;
+  duration1Min: number;
+  duration2Min: number;
+  formatClockForFrame: (frameIndex: number) => string;
+  frameIndexAtChartT: (t01: number) => number;
+};
+
+function parseTimestampToMatchMinutes(ts: string | null | undefined): number | null {
+  if (ts == null || ts === "") return null;
+  const parts = ts.split(":");
+  if (parts.length < 3) return null;
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  const s = Number(parts[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(m) || !Number.isFinite(s)) return null;
+  return h * 60 + m + s / 60;
+}
+
+function formatBroadcastClock(frame: TrackingFrame): string {
+  const mins = parseTimestampToMatchMinutes(frame.timestamp ?? undefined);
+  if (mins == null || frame.period == null) return "—";
+  const mi = Math.floor(mins);
+  const sec = Math.floor((mins - mi) * 60 + 1e-6);
+  return `${mi}:${String(Math.min(59, sec)).padStart(2, "0")}`;
+}
+
+function buildMomentumTimeline(frames: TrackingFrame[]): MomentumTimeline | null {
+  const n = frames.length;
+  if (n === 0) return null;
+
+  let p1s = -1;
+  let p1e = -1;
+  let p2s = -1;
+  let p2e = -1;
+  for (let i = 0; i < n; i++) {
+    const p = frames[i]!.period;
+    if (p === 1) {
+      if (p1s < 0) p1s = i;
+      p1e = i;
+    }
+    if (p === 2) {
+      if (p2s < 0) p2s = i;
+      p2e = i;
+    }
+  }
+
+  if (p1s < 0 || p1e < 0 || p2s < 0 || p2e < 0) return null;
+
+  const len1 = p1e - p1s + 1;
+  const len2 = p2e - p2s + 1;
+  const total = len1 + len2;
+  const w1Norm = total > 0 ? len1 / total : 0.5;
+
+  const chartT = new Float32Array(n);
+  const matchMinutes = new Float32Array(n);
+  const span1 = Math.max(1, len1 - 1);
+  const span2 = Math.max(1, len2 - 1);
+  const w2Norm = 1 - w1Norm;
+
+  for (let i = 0; i < n; i++) {
+    const mm = parseTimestampToMatchMinutes(frames[i]!.timestamp ?? undefined);
+    matchMinutes[i] = mm ?? -1;
+
+    if (i < p1s) chartT[i] = 0;
+    else if (i <= p1e)
+      chartT[i] = ((i - p1s) / span1) * w1Norm;
+    else if (i < p2s) chartT[i] = w1Norm;
+    else if (i <= p2e)
+      chartT[i] = w1Norm + ((i - p2s) / span2) * w2Norm;
+    else chartT[i] = 1;
+  }
+
+  const end1 = parseTimestampToMatchMinutes(frames[p1e]!.timestamp ?? undefined);
+  const end2 = parseTimestampToMatchMinutes(frames[p2e]!.timestamp ?? undefined);
+  const duration1Min = end1 ?? len1 / 600;
+  const duration2Min =
+    end2 != null ? Math.max(0.01, end2 - 45) : len2 / 600;
+
+  const formatClockForFrame = (frameIndex: number) => {
+    const i = Math.min(Math.max(0, frameIndex), n - 1);
+    return formatBroadcastClock(frames[i]!);
+  };
+
+  const frameIndexAtChartT = (t01: number) => {
+    const target = Math.max(0, Math.min(1, t01));
+    let lo = 0;
+    let hi = n - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (chartT[mid]! < target) lo = mid + 1;
+      else hi = mid;
+    }
+    let best = lo;
+    if (lo > 0) {
+      const dL = Math.abs(chartT[lo - 1]! - target);
+      const dR = Math.abs(chartT[lo]! - target);
+      if (dL < dR) best = lo - 1;
+    }
+    return best;
+  };
+
+  return {
+    chartT,
+    matchMinutes,
+    p1s,
+    p1e,
+    p2s,
+    p2e,
+    w1Norm,
+    duration1Min,
+    duration2Min,
+    formatClockForFrame,
+    frameIndexAtChartT,
+  };
 }
 
 export function useMatchTracking() {
@@ -123,6 +250,11 @@ export function useMatchTracking() {
     };
   }, [frames, frameIndex]);
 
+  const momentumTimeline = useMemo(
+    () => (frames?.length ? buildMomentumTimeline(frames) : null),
+    [frames],
+  );
+
   return {
     players: snapshot.players,
     ball: snapshot.ball,
@@ -130,5 +262,6 @@ export function useMatchTracking() {
     timestamp: snapshot.timestamp,
     loadError,
     loaded: frames !== null,
+    momentumTimeline,
   };
 }

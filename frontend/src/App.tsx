@@ -21,7 +21,8 @@ const FLAG_DE_URL =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Flag_of_Germany.svg/1280px-Flag_of_Germany.svg.png";
 
 function App() {
-  const { players, ball, loadError, loaded } = useMatchTracking();
+  const { players, ball, loadError, loaded, momentumTimeline } =
+    useMatchTracking();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -62,7 +63,7 @@ function App() {
             />
           </div>
         </div>
-        <MomentumChart />
+        <MomentumChart timeline={momentumTimeline} />
       </header>
 
       <Separator />
@@ -94,7 +95,7 @@ function App() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 min-h-0 p-3">
-            <VideoPlayer />
+            <VideoPlayer timeline={momentumTimeline} />
           </CardContent>
         </Card>
 
