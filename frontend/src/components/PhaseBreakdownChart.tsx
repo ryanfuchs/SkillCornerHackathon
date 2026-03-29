@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   CartesianGrid,
   ComposedChart,
   Legend,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -125,6 +126,8 @@ const INDICATOR_STYLES: { id: string; label: string; color: string }[] = [
   { id: 'line_to_line_acceleration', label: 'Line-to-line accel.', color: '#e11d48' },
 ]
 
+const MOVING_WINDOW_FRAMES = 150
+
 function isPhaseRecord(p: PhaseRecord | LegacyPhaseMeta): p is PhaseRecord {
   return p.phaseOfPlay != null && Object.keys(p.phaseOfPlay).length > 0
 }
@@ -142,67 +145,69 @@ function phaseLabel(p: PhaseRecord | LegacyPhaseMeta) {
   return `P${l.period ?? '?'} ${l.minuteStart ?? '?'}:${String(l.secondStart ?? 0).padStart(2, '0')} · ${l.phaseType ?? ''}`
 }
 
-function chartRowsFromSeries(series: SeriesRow) {
-  if (!series?.t?.length) return []
-  return series.t.map((t, i) => ({
-    t,
-    player_clusters: series.player_clusters[i] ?? 0,
-    position_change: series.position_change[i] ?? 0,
-    ball_chaos: series.ball_chaos[i] ?? 0,
-    defensive_line: series.defensive_line[i] ?? 0,
-    line_to_line_acceleration: series.line_to_line_acceleration[i] ?? 0,
-  }))
+function frameSeriesLength(fs: FrameSeries): number {
+  return Math.min(
+    fs.trackingFrameIds.length,
+    fs.player_clusters.length,
+    fs.position_change.length,
+    fs.ball_chaos.length,
+    fs.defensive_line.length,
+    fs.line_to_line_acceleration.length,
+  )
 }
 
-function chartRowsFromFrameSlice(
+function chartRowsFromFrameWindow(
   fs: FrameSeries,
-  bundleStart: number,
-  bundleEnd: number,
+  windowStart: number,
+  windowEnd: number,
   stride: number,
 ) {
-  const len = fs.player_clusters.length
-  if (len === 0 || bundleStart >= len) return []
-  const hi = Math.min(bundleEnd, len - 1)
-  const rows: ReturnType<typeof chartRowsFromSeries> = []
-  let t = 0
-  for (let i = bundleStart; i <= hi; i += stride) {
+  const len = frameSeriesLength(fs)
+  if (len === 0 || windowStart >= len) return []
+  const hi = Math.min(windowEnd, len - 1)
+  const rows: Array<{
+    frame: number
+    player_clusters: number
+    position_change: number
+    ball_chaos: number
+    defensive_line: number
+    line_to_line_acceleration: number
+  }> = []
+  for (let i = windowStart; i <= hi; i += stride) {
     rows.push({
-      t,
+      frame: i,
       player_clusters: fs.player_clusters[i] ?? 0,
       position_change: fs.position_change[i] ?? 0,
       ball_chaos: fs.ball_chaos[i] ?? 0,
       defensive_line: fs.defensive_line[i] ?? 0,
       line_to_line_acceleration: fs.line_to_line_acceleration[i] ?? 0,
     })
-    t += stride
   }
   return rows
 }
 
-type ChartRow = ReturnType<typeof chartRowsFromSeries>[number]
+type ChartRow = ReturnType<typeof chartRowsFromFrameWindow>[number]
 
-function bundleIndexFromHoverState(
+function frameIndexFromHoverState(
   state: MouseHandlerDataParam,
   rows: ChartRow[],
-  bundleStart: number,
-  bundleEnd: number,
+  frameStart: number,
+  frameEnd: number,
 ): number | null {
   if (rows.length === 0) return null
   const idx = state.activeTooltipIndex
   if (typeof idx === 'number' && idx >= 0 && idx < rows.length) {
-    const t = rows[idx]!.t
-    return Math.max(bundleStart, Math.min(bundleEnd, bundleStart + t))
+    const frame = rows[idx]!.frame
+    return Math.max(frameStart, Math.min(frameEnd, frame))
   }
   const label = state.activeLabel
   if (typeof label === 'number' && Number.isFinite(label)) {
-    const bi = bundleStart + label
-    return Math.max(bundleStart, Math.min(bundleEnd, Math.round(bi)))
+    return Math.max(frameStart, Math.min(frameEnd, Math.round(label)))
   }
   if (typeof label === 'string' && label !== '') {
     const n = Number(label)
     if (Number.isFinite(n)) {
-      const bi = bundleStart + n
-      return Math.max(bundleStart, Math.min(bundleEnd, Math.round(bi)))
+      return Math.max(frameStart, Math.min(frameEnd, Math.round(n)))
     }
   }
   return null
@@ -242,13 +247,13 @@ export function PhaseBreakdownChart() {
     phaseIndex,
     frameIndex,
     setPhaseIndex,
-    setFrameIndex,
     jumpToFrame,
     pause,
     resume,
     isPlaying,
   } = usePlayback()
   const wasPlayingBeforeScrubRef = useRef(true)
+  const [hoverWindowCenterFrame, setHoverWindowCenterFrame] = useState<number | null>(null)
   const phases = payload.phases
   const n = phases.length
   const frameSeries = payload.frameSeries
@@ -269,7 +274,6 @@ export function PhaseBreakdownChart() {
   }, [frameIndex, n, phases, setPhaseIndex])
 
   const phase = phases[safePhase]
-  const series = payload.seriesByPhaseOrder[String(safePhase)]
   const goToPhase = useCallback(
     (nextIndex: number) => {
       const clamped = Math.max(0, Math.min(n - 1, nextIndex))
@@ -279,35 +283,43 @@ export function PhaseBreakdownChart() {
     },
     [jumpToFrame, n, phases, setPhaseIndex],
   )
-  const chartData = useMemo(() => {
-    const fromSeries = chartRowsFromSeries(series);
-    if (fromSeries.length > 0) return fromSeries;
-    if (
-      frameSeries &&
-      phase?.bundleStart != null &&
-      phase.bundleEnd != null &&
-      phase.bundleStart <= phase.bundleEnd
-    ) {
-      return chartRowsFromFrameSlice(
-        frameSeries,
-        phase.bundleStart,
-        phase.bundleEnd,
-        chartStride,
-      );
+  const totalFrames = frameSeriesLength(frameSeries)
+
+  const activeWindowCenterFrame =
+    hoverWindowCenterFrame != null && totalFrames > 0
+      ? Math.max(0, Math.min(totalFrames - 1, hoverWindowCenterFrame))
+      : totalFrames > 0
+        ? Math.max(0, Math.min(totalFrames - 1, frameIndex))
+        : 0
+
+  const { windowStart, windowEnd } = useMemo(() => {
+    if (totalFrames <= 0) {
+      return { windowStart: 0, windowEnd: -1 }
     }
-    return [];
-  }, [series, frameSeries, phase, chartStride]);
+    const windowSize = Math.max(2, MOVING_WINDOW_FRAMES)
+    const half = Math.floor(windowSize / 2)
+    const maxStart = Math.max(0, totalFrames - windowSize)
+    const start = Math.max(0, Math.min(maxStart, activeWindowCenterFrame - half))
+    const end = Math.min(totalFrames - 1, start + windowSize - 1)
+    return { windowStart: start, windowEnd: end }
+  }, [activeWindowCenterFrame, totalFrames])
 
-  const bundleStart = phase?.bundleStart ?? series?.bundleStart ?? null;
-  const bundleEnd = phase?.bundleEnd ?? series?.bundleEnd ?? null;
+  const chartData = useMemo(
+    () =>
+      chartRowsFromFrameWindow(
+        frameSeries,
+        windowStart,
+        windowEnd,
+        Math.max(1, chartStride),
+      ),
+    [chartStride, frameSeries, windowEnd, windowStart],
+  )
 
-  const playheadT =
-    bundleStart != null && bundleEnd != null ? frameIndex - bundleStart : null;
-  const inPhase =
-    playheadT != null &&
-    playheadT >= 0 &&
-    bundleEnd != null &&
-    frameIndex <= bundleEnd;
+  const bundleStart = phase?.bundleStart ?? null
+  const bundleEnd = phase?.bundleEnd ?? null
+
+  const safeFrameIndex =
+    totalFrames > 0 ? Math.max(0, Math.min(totalFrames - 1, frameIndex)) : null
 
   const frameStartEnd =
     isPhaseRecord(phase) && phase.phaseOfPlay
@@ -320,21 +332,43 @@ export function PhaseBreakdownChart() {
           frameEnd: (phase as LegacyPhaseMeta).frameEnd,
         };
 
+  const boundaryMarkers = useMemo(() => {
+    if (windowEnd < windowStart) return []
+    const markers: Array<{ key: string; x: number; kind: 'start' | 'end' }> = []
+    for (const p of phases) {
+      if (p.bundleStart != null && p.bundleStart >= windowStart && p.bundleStart <= windowEnd) {
+        markers.push({ key: `start-${p.orderIndex}`, x: p.bundleStart, kind: 'start' })
+      }
+      if (p.bundleEnd != null && p.bundleEnd >= windowStart && p.bundleEnd <= windowEnd) {
+        markers.push({ key: `end-${p.orderIndex}`, x: p.bundleEnd, kind: 'end' })
+      }
+    }
+    return markers
+  }, [phases, windowEnd, windowStart])
+
   const handleChartMouseMove = useCallback(
     (state: MouseHandlerDataParam) => {
-      if (bundleStart == null || bundleEnd == null) return
-      const b = bundleIndexFromHoverState(state, chartData, bundleStart, bundleEnd)
+      if (totalFrames <= 0) return
+      const b = frameIndexFromHoverState(state, chartData, 0, totalFrames - 1)
       if (b != null) jumpToFrame(b)
     },
-    [bundleStart, bundleEnd, chartData, jumpToFrame],
+    [chartData, jumpToFrame, totalFrames],
   )
 
   const handleChartAreaEnter = useCallback(() => {
     wasPlayingBeforeScrubRef.current = isPlaying
+    setHoverWindowCenterFrame((cur) =>
+      cur != null
+        ? cur
+        : totalFrames > 0
+          ? Math.max(0, Math.min(totalFrames - 1, frameIndex))
+          : 0,
+    )
     pause()
-  }, [isPlaying, pause])
+  }, [frameIndex, isPlaying, pause, totalFrames])
 
   const handleChartAreaLeave = useCallback(() => {
+    setHoverWindowCenterFrame(null)
     if (wasPlayingBeforeScrubRef.current) resume()
   }, [resume])
 
@@ -376,7 +410,7 @@ export function PhaseBreakdownChart() {
           >
             <ChevronRight className="size-4" />
           </Button>
-          {bundleStart != null && bundleEnd != null && (
+          {totalFrames > 0 && (
             <>
               <span className="mx-1 h-4 w-px bg-border" aria-hidden />
               <Button
@@ -384,10 +418,8 @@ export function PhaseBreakdownChart() {
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                disabled={frameIndex <= bundleStart}
-                onClick={() =>
-                  setFrameIndex((f) => Math.max(bundleStart, f - 1))
-                }
+                disabled={frameIndex <= 0}
+                onClick={() => jumpToFrame(frameIndex - 1)}
               >
                 −1f
               </Button>
@@ -396,8 +428,8 @@ export function PhaseBreakdownChart() {
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                disabled={frameIndex >= bundleEnd}
-                onClick={() => setFrameIndex((f) => Math.min(bundleEnd, f + 1))}
+                disabled={frameIndex >= totalFrames - 1}
+                onClick={() => jumpToFrame(frameIndex + 1)}
               >
                 +1f
               </Button>
@@ -408,7 +440,7 @@ export function PhaseBreakdownChart() {
 
       {chartData.length === 0 ? (
         <div className="flex min-h-[10rem] items-center justify-center text-muted-foreground/50 text-sm">
-          No series for this phase
+          No series data
         </div>
       ) : (
         <div
@@ -424,12 +456,12 @@ export function PhaseBreakdownChart() {
             >
               <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
               <XAxis
-                dataKey="t"
+                dataKey="frame"
                 type="number"
                 domain={["dataMin", "dataMax"]}
                 tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                 label={{
-                  value: "Frame offset in phase",
+                  value: "Bundle frame (rolling 150-frame window)",
                   position: "insideBottom",
                   offset: -2,
                   style: { fill: "hsl(var(--muted-foreground))", fontSize: 10 },
@@ -469,11 +501,37 @@ export function PhaseBreakdownChart() {
                   activeDot={false}
                 />
               ))}
-              {inPhase && playheadT != null && (
+              {boundaryMarkers.map((marker) => (
+                marker.kind === 'start' ? (
+                  <ReferenceArea
+                    key={`area-${marker.key}`}
+                    x1={Math.max(windowStart, marker.x - 0.5)}
+                    x2={Math.min(windowEnd, marker.x + 0.5)}
+                    fill="hsl(var(--muted-foreground))"
+                    fillOpacity={0.08}
+                    ifOverflow="extendDomain"
+                  />
+                ) : null
+              ))}
+              {boundaryMarkers.map((marker) => (
                 <ReferenceLine
-                  x={playheadT}
+                  key={marker.key}
+                  x={marker.x}
+                  stroke={
+                    marker.kind === 'start'
+                      ? 'hsl(var(--foreground))'
+                      : 'hsl(var(--muted-foreground))'
+                  }
+                  strokeOpacity={marker.kind === 'start' ? 0.6 : 0.65}
+                  strokeWidth={marker.kind === 'start' ? 1.1 : 0.8}
+                  strokeDasharray={marker.kind === 'start' ? '2 3' : '1 4'}
+                />
+              ))}
+              {safeFrameIndex != null && (
+                <ReferenceLine
+                  x={safeFrameIndex}
                   stroke="hsl(var(--foreground))"
-                  strokeWidth={1}
+                  strokeWidth={1.2}
                   strokeDasharray="4 3"
                 />
               )}
