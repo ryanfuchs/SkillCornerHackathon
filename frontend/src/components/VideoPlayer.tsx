@@ -73,7 +73,13 @@ export function VideoPlayer({ timeline }: Props) {
   }, [startTime])
 
   return (
-    <div className="h-full min-h-[14rem] w-full overflow-hidden rounded-md border border-border/60 bg-black/20">
+    <div
+      className="h-full min-h-[14rem] w-full overflow-hidden rounded-xl border border-border/70"
+      style={{
+        backgroundColor: "var(--video-well)",
+        boxShadow: "var(--shadow-soft)",
+      }}
+    >
       <iframe
         key={startTime}
         title="SRF match video"

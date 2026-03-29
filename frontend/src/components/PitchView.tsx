@@ -77,6 +77,61 @@ const CAMERA_OVERHEAD_Y = 118;
 /** Higher = snappier camera blend between default and overhead (roughly ~1/e in 1/λ seconds). */
 const CAMERA_VIEW_SMOOTHING = 11;
 
+type PitchThemeColors = {
+  pitchSurface: string;
+  pitchLine: string;
+  sceneBackground: string;
+  primary: string;
+  accent: string;
+  foreground: string;
+};
+
+const PITCH_THEME_FALLBACK: PitchThemeColors = {
+  pitchSurface: "#325c75",
+  pitchLine: "#e8e2db",
+  sceneBackground: "#152a53",
+  primary: "#1a3263",
+  accent: "#fab95b",
+  foreground: "#1a3263",
+};
+
+function readCssColorVariable(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const variableValue = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  if (!variableValue) return fallback;
+  const probe = document.createElement("span");
+  probe.style.color = variableValue;
+  document.body.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  return resolved || fallback;
+}
+
+function usePitchThemeColors(): PitchThemeColors {
+  const [colors, setColors] = useState<PitchThemeColors>(PITCH_THEME_FALLBACK);
+
+  useLayoutEffect(() => {
+    setColors({
+      pitchSurface: readCssColorVariable(
+        "--pitch-surface",
+        PITCH_THEME_FALLBACK.pitchSurface,
+      ),
+      pitchLine: readCssColorVariable("--pitch-line", PITCH_THEME_FALLBACK.pitchLine),
+      sceneBackground: readCssColorVariable(
+        "--pitch-scene-background",
+        PITCH_THEME_FALLBACK.sceneBackground,
+      ),
+      primary: readCssColorVariable("--primary", PITCH_THEME_FALLBACK.primary),
+      accent: readCssColorVariable("--accent", PITCH_THEME_FALLBACK.accent),
+      foreground: readCssColorVariable("--foreground", PITCH_THEME_FALLBACK.foreground),
+    });
+  }, []);
+
+  return colors;
+}
+
 function applyOverheadToScratch(
   sc: THREE.PerspectiveCamera,
   overhead: boolean,
@@ -290,22 +345,22 @@ function penaltyArcPositiveYPoints(): THREE.Vector3[] {
 }
 
 /** Plane + markings + spots share one parent `group` so local XY matches `planeGeometry` (Z = normal). */
-function PitchPlane() {
+function PitchPlane({ surfaceColor }: { surfaceColor: string }) {
   return (
     <mesh>
       <planeGeometry args={[PITCH_WIDTH, PITCH_LENGTH]} />
-      <meshStandardMaterial color="#2f6b3c" roughness={0.85} metalness={0.05} />
+      <meshStandardMaterial color={surfaceColor} roughness={0.85} metalness={0.05} />
     </mesh>
   );
 }
 
 /** Filled center mark (dot); slightly above line z to avoid z-fighting. */
-function CenterSpot() {
+function CenterSpot({ lineColor }: { lineColor: string }) {
   return (
     <mesh position={[0, 0, LINE_LIFT + 0.008]}>
       <circleGeometry args={[CENTER_SPOT_RADIUS, 32]} />
       <meshBasicMaterial
-        color="#e8eef2"
+        color={lineColor}
         depthTest
         polygonOffset
         polygonOffsetFactor={-1}
@@ -316,7 +371,7 @@ function CenterSpot() {
 }
 
 /** Penalty marks: 11 m from each goal line on halfway axis (Law 1). */
-function PenaltySpots() {
+function PenaltySpots({ lineColor }: { lineColor: string }) {
   const z = LINE_LIFT + 0.008;
   const yNeg = -HL + PENALTY_MARK_FROM_GOAL_LINE;
   const yPos = HL - PENALTY_MARK_FROM_GOAL_LINE;
@@ -325,7 +380,7 @@ function PenaltySpots() {
       <mesh position={[0, yNeg, z]}>
         <circleGeometry args={[CENTER_SPOT_RADIUS, 32]} />
         <meshBasicMaterial
-          color="#e8eef2"
+          color={lineColor}
           depthTest
           polygonOffset
           polygonOffsetFactor={-1}
@@ -335,7 +390,7 @@ function PenaltySpots() {
       <mesh position={[0, yPos, z]}>
         <circleGeometry args={[CENTER_SPOT_RADIUS, 32]} />
         <meshBasicMaterial
-          color="#e8eef2"
+          color={lineColor}
           depthTest
           polygonOffset
           polygonOffsetFactor={-1}
@@ -365,16 +420,19 @@ function createBallShadowAlphaMap(): THREE.CanvasTexture {
   return tex;
 }
 
-function createSoccerBallTexture(): THREE.CanvasTexture {
+function createSoccerBallTexture(
+  baseColor: string,
+  panelColor: string,
+): THREE.CanvasTexture {
   const w = 512;
   const h = 256;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#FFFF00";
+  ctx.fillStyle = baseColor;
   ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#1c1c1c";
+  ctx.fillStyle = panelColor;
 
   function drawPentagon(cx: number, cy: number, r: number) {
     ctx.beginPath();
@@ -419,13 +477,22 @@ function FootballBall({
   x = 0,
   y = 0,
   z = 0,
+  ballBaseColor,
+  ballPanelColor,
+  shadowColor,
 }: {
   x?: number;
   y?: number;
   z?: number;
+  ballBaseColor: string;
+  ballPanelColor: string;
+  shadowColor: string;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const texture = useMemo(() => createSoccerBallTexture(), []);
+  const texture = useMemo(
+    () => createSoccerBallTexture(ballBaseColor, ballPanelColor),
+    [ballBaseColor, ballPanelColor],
+  );
   const shadowAlphaMap = useMemo(() => createBallShadowAlphaMap(), []);
 
   useLayoutEffect(() => {
@@ -450,7 +517,7 @@ function FootballBall({
       >
         <circleGeometry args={[BALL_SHADOW_RADIUS, 40]} />
         <meshBasicMaterial
-          color="#050806"
+          color={shadowColor}
           transparent
           opacity={0.5}
           alphaMap={shadowAlphaMap}
@@ -477,17 +544,27 @@ function FootballBall({
   );
 }
 
-const goalFrameMaterial = new THREE.MeshStandardMaterial({
-  color: "#eef1f4",
-  roughness: 0.45,
-  metalness: 0.25,
-});
-
 /**
  * One goal: two posts + crossbar in pitch local space (Z up from turf).
  * `yLine` is the goal line (±HL).
  */
-function GoalFrame3D({ yLine }: { yLine: number }) {
+function GoalFrame3D({ yLine, lineColor }: { yLine: number; lineColor: string }) {
+  const goalFrameMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: lineColor,
+        roughness: 0.45,
+        metalness: 0.25,
+      }),
+    [lineColor],
+  );
+
+  useLayoutEffect(() => {
+    return () => {
+      goalFrameMaterial.dispose();
+    };
+  }, [goalFrameMaterial]);
+
   const zPost = GOAL_HEIGHT / 2;
   const zCross = GOAL_HEIGHT - GOAL_POST_THICK / 2;
   return (
@@ -520,18 +597,18 @@ function GoalFrame3D({ yLine }: { yLine: number }) {
 /**
  * Touchlines, goal lines, halfway line, center circle, penalty areas, penalty arcs, goal areas.
  */
-function PitchMarkings() {
+function PitchMarkings({ lineColor }: { lineColor: string }) {
   const { size } = useThree();
 
   const material = useMemo(
     () =>
       new LineMaterial({
-        color: "#e8eef2",
+        color: lineColor,
         linewidth: OUTLINE_LINE_WIDTH,
         worldUnits: true,
         depthTest: true,
       }),
-    [],
+    [lineColor],
   );
 
   useLayoutEffect(() => {
@@ -685,14 +762,15 @@ export function PitchView({
   ballPosition,
 }: PitchViewProps) {
   const [overhead, setOverhead] = useState(false);
+  const themeColors = usePitchThemeColors();
 
   return (
-    <div className="relative h-full min-h-0 w-full flex-1 rounded-md overflow-hidden border border-border/50">
+    <div className="relative h-full min-h-0 w-full flex-1 rounded-xl overflow-hidden border border-border/60">
       <Button
         type="button"
         variant="outline"
         size="sm"
-        className="absolute top-2 right-2 z-10 bg-background/80 backdrop-blur-sm"
+        className="absolute top-2 right-2 z-10 bg-background/75 backdrop-blur-sm"
         onClick={() => setOverhead((o) => !o)}
       >
         {overhead ? "Default view" : "Overhead view"}
@@ -705,18 +783,18 @@ export function PitchView({
         gl={{ antialias: true }}
       >
         <CameraRig overhead={overhead} />
-        <color attach="background" args={["#0c0f12"]} />
+        <color attach="background" args={[themeColors.sceneBackground]} />
         <ambientLight intensity={0.45} />
         <directionalLight position={[40, 60, 24]} intensity={1.1} />
         <group rotation={PITCH_ROTATION}>
-          <PitchPlane />
-          <PitchMarkings />
-          <CenterSpot />
-          <PenaltySpots />
+          <PitchPlane surfaceColor={themeColors.pitchSurface} />
+          <PitchMarkings lineColor={themeColors.pitchLine} />
+          <CenterSpot lineColor={themeColors.pitchLine} />
+          <PenaltySpots lineColor={themeColors.pitchLine} />
           {!overhead && (
             <>
-              <GoalFrame3D yLine={-HL} />
-              <GoalFrame3D yLine={HL} />
+              <GoalFrame3D yLine={-HL} lineColor={themeColors.pitchLine} />
+              <GoalFrame3D yLine={HL} lineColor={themeColors.pitchLine} />
             </>
           )}
           <PlayerMarkers players={players} />
@@ -725,6 +803,9 @@ export function PitchView({
               x={ballPosition?.x ?? 0}
               y={ballPosition?.y ?? 0}
               z={ballPosition?.z ?? 0}
+              ballBaseColor={themeColors.accent}
+              ballPanelColor={themeColors.primary}
+              shadowColor={themeColors.foreground}
             />
           )}
         </group>

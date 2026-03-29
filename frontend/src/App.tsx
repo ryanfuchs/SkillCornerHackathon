@@ -1,5 +1,5 @@
 import { Separator } from '@/components/ui/separator'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { MomentumChart } from '@/components/MomentumChart'
 import { PhaseBreakdownChart } from '@/components/PhaseBreakdownChart'
 import { PitchView } from '@/components/PitchView'
@@ -26,30 +26,30 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="py-8 px-8 flex flex-col items-center gap-2">
+      <header className="px-8 pt-8 pb-6 flex flex-col items-center gap-2">
         <p className="text-sm text-muted-foreground font-medium tracking-widest uppercase">
           {matchData.competition} &mdash; {matchData.date}
         </p>
-        <div className="flex items-center gap-6 mt-2">
+        <div className="flex items-center gap-7 mt-1.5">
           <div className="flex items-center gap-3">
             <img
               src={FLAG_CH_URL}
               alt=""
               width={44}
               height={44}
-              className="h-11 w-11 shrink-0 rounded-sm border border-white object-cover shadow-sm"
+              className="h-11 w-11 shrink-0 rounded-md border border-border/85 bg-card object-cover [box-shadow:var(--shadow-card)]"
               loading="lazy"
               decoding="async"
             />
-            <span className="text-6xl font-bold tracking-tight">
+            <span className="text-6xl font-semibold tracking-tight text-foreground">
               {matchData.homeTeam}
             </span>
           </div>
-          <span className="text-3xl font-light text-muted-foreground tabular-nums">
+          <span className="text-3xl font-light text-secondary tabular-nums">
             {matchData.homeScore}&nbsp;&ndash;&nbsp;{matchData.awayScore}
           </span>
           <div className="flex items-center gap-3">
-            <span className="text-6xl font-bold tracking-tight">
+            <span className="text-6xl font-semibold tracking-tight text-foreground">
               {matchData.awayTeam}
             </span>
             <img
@@ -57,7 +57,7 @@ function App() {
               alt=""
               width={73}
               height={44}
-              className="h-11 w-auto shrink-0 rounded-sm border border-white object-cover shadow-sm aspect-[5/3]"
+              className="h-11 w-auto shrink-0 rounded-md border border-border/85 bg-card object-cover [box-shadow:var(--shadow-card)] aspect-[5/3]"
               loading="lazy"
               decoding="async"
             />
@@ -66,21 +66,16 @@ function App() {
         <MomentumChart timeline={momentumTimeline} />
       </header>
 
-      <Separator />
+      <Separator className="opacity-80" />
 
-      <main className="flex-1 min-h-0 p-8 grid grid-cols-3 gap-4 grid-rows-[1fr_1fr_auto]">
-        <Card className="col-span-2 row-span-2 bg-transparent flex flex-col min-h-0">
-          <CardHeader className="shrink-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pitch Visualization
-              {loadError ? (
-                <span className="ml-2 text-destructive font-normal">
-                  (failed to load tracking: {loadError})
-                </span>
-              ) : null}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 min-h-0 p-0 pt-2 flex flex-col">
+      <main className="flex-1 min-h-0 px-8 pb-8 pt-6 grid grid-cols-3 gap-4 grid-rows-[1fr_1fr_auto]">
+        <Card className="col-span-2 row-span-2 bg-card/84 flex flex-col min-h-0 gap-0 py-0">
+          <CardContent className="flex-1 min-h-0 p-0 flex flex-col">
+            {loadError ? (
+              <p className="px-4 pb-2 text-xs text-destructive">
+                Failed to load tracking: {loadError}
+              </p>
+            ) : null}
             <PitchView
               players={loaded ? players : undefined}
               ballPosition={loaded ? ball : undefined}
@@ -88,23 +83,13 @@ function App() {
           </CardContent>
         </Card>
 
-        <Card className="row-span-2 bg-transparent flex flex-col min-h-0">
-          <CardHeader className="shrink-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Video Player
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 min-h-0 p-3">
+        <Card className="row-span-2 bg-card/84 flex flex-col min-h-0 gap-0 py-0">
+          <CardContent className="flex-1 min-h-0 p-0">
             <VideoPlayer timeline={momentumTimeline} />
           </CardContent>
         </Card>
 
-        <Card className="col-span-3 bg-transparent flex flex-col min-h-0">
-          <CardHeader className="shrink-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Phase Breakdown
-            </CardTitle>
-          </CardHeader>
+        <Card className="col-span-3 bg-card/84 flex flex-col min-h-0">
           <CardContent className="flex-1 min-h-0 p-0 pt-2 px-4 pb-4 w-full">
             <PhaseBreakdownChart />
           </CardContent>

@@ -268,7 +268,7 @@ export function MomentumChart({ timeline }: Props) {
               y1={PAD_TOP}
               x2={w1Px}
               y2={baseY}
-              stroke="hsl(var(--border))"
+              stroke="var(--border)"
               strokeWidth="1"
               strokeDasharray="4 3"
             />
@@ -278,7 +278,7 @@ export function MomentumChart({ timeline }: Props) {
             <path
               d={linePaths.d1}
               fill="none"
-              stroke="hsl(var(--foreground))"
+              stroke="var(--foreground)"
               strokeWidth="1.75"
               strokeOpacity="0.85"
               strokeLinecap="round"
@@ -289,7 +289,7 @@ export function MomentumChart({ timeline }: Props) {
             <path
               d={linePaths.d2}
               fill="none"
-              stroke="hsl(var(--foreground))"
+              stroke="var(--foreground)"
               strokeWidth="1.75"
               strokeOpacity="0.85"
               strokeLinecap="round"
@@ -304,7 +304,7 @@ export function MomentumChart({ timeline }: Props) {
                 y1={PAD_TOP}
                 x2={playX}
                 y2={baseY}
-                stroke="hsl(var(--foreground))"
+                stroke="var(--foreground)"
                 strokeWidth="1.25"
                 strokeOpacity="0.55"
               />
@@ -312,7 +312,7 @@ export function MomentumChart({ timeline }: Props) {
                 x={playX}
                 y={PAD_TOP - 1}
                 textAnchor="middle"
-                fill="hsl(var(--foreground))"
+                fill="var(--foreground)"
                 fontSize="10"
                 opacity={0.75}
                 className="tabular-nums"
@@ -348,10 +348,19 @@ export function MomentumChart({ timeline }: Props) {
                 </span>
                 <div
                   className="h-0 w-0 border-x-[6px] border-x-transparent border-t-[8px] border-t-foreground"
-                  style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.35))' }}
+                  style={{
+                    filter:
+                      'drop-shadow(0 1px 0 color-mix(in srgb, var(--foreground) 35%, transparent))',
+                  }}
                 />
               </div>
-              <div className="min-h-[24px] w-[3px] flex-1 rounded-[1px] bg-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.45)]" />
+              <div
+                className="min-h-[24px] w-[3px] flex-1 rounded-[1px] bg-foreground"
+                style={{
+                  boxShadow:
+                    '0 0 0 1px color-mix(in srgb, var(--foreground) 42%, transparent)',
+                }}
+              />
             </div>
           </div>
         ) : null}
