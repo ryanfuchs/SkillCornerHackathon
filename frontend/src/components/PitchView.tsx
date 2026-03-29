@@ -19,6 +19,7 @@ import * as THREE from "three";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import playerInfoJson from "@/data/playerInfoById.json";
+import { bestClusterIdsForBundleFrame } from "@/lib/bestClusterByBundleFrame";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -98,6 +99,12 @@ const TRAIL_MAX_SAMPLES = 31;
 const TRAIL_LINE_WIDTH = 0.11;
 /** Slightly below player discs so the trace reads under the marker. */
 const TRAIL_Z = PLAYER_LIFT - 0.028;
+/** Pairwise cluster “net”: above the running trace, still under player markers. */
+const CLUSTER_NET_Z = PLAYER_LIFT - 0.017;
+const CLUSTER_NET_LINE_WIDTH = 0.2;
+/** High-contrast on green turf. */
+const CLUSTER_NET_COLOR = 0xffffff;
+const CLUSTER_NET_OPACITY = 0.92;
 const DEFAULT_PLAYER_RADIUS = 0.78;
 /** Applied to marker radius when jersey numbers are shown (larger hit + label). */
 const PLAYER_MARKER_NUMBER_SCALE = 1.52;
@@ -1080,6 +1087,82 @@ function FocusedPlayerBurndownTrail({
   );
 }
 
+function ClusterPlayerNet({
+  players,
+  clusterPlayerIds,
+  visible,
+}: {
+  players: PitchPlayer[];
+  clusterPlayerIds: readonly number[];
+  visible: boolean;
+}) {
+  const { size } = useThree();
+
+  const clusterPlayers = useMemo(() => {
+    if (!visible || clusterPlayerIds.length < 2) return [] as PitchPlayer[];
+    const idSet = new Set(clusterPlayerIds.map((id) => String(id)));
+    return players.filter((p) => idSet.has(p.id));
+  }, [players, clusterPlayerIds, visible]);
+
+  const netLines = useMemo(() => {
+    if (clusterPlayers.length < 2) return [] as Line2[];
+    const pts = clusterPlayers;
+    const out: Line2[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i]!;
+        const b = pts[j]!;
+        const geom = new LineGeometry().setPositions([
+          a.x,
+          -a.y,
+          CLUSTER_NET_Z,
+          b.x,
+          -b.y,
+          CLUSTER_NET_Z,
+        ]);
+        const mat = new LineMaterial({
+          color: CLUSTER_NET_COLOR,
+          linewidth: CLUSTER_NET_LINE_WIDTH,
+          worldUnits: true,
+          transparent: true,
+          opacity: CLUSTER_NET_OPACITY,
+          depthTest: true,
+          depthWrite: false,
+        });
+        mat.resolution.set(size.width, size.height);
+        const line = new Line2(geom, mat);
+        line.raycast = noopRaycast;
+        line.renderOrder = 0;
+        out.push(line);
+      }
+    }
+    return out;
+  }, [clusterPlayers, size.width, size.height]);
+
+  useLayoutEffect(() => {
+    return () => {
+      for (const l of netLines) {
+        l.geometry.dispose();
+        (l.material as LineMaterial).dispose();
+      }
+    };
+  }, [netLines]);
+
+  useLayoutEffect(() => {
+    for (const l of netLines) {
+      (l.material as LineMaterial).resolution.set(size.width, size.height);
+    }
+  }, [netLines, size.width, size.height]);
+
+  return (
+    <>
+      {netLines.map((line, i) => (
+        <primitive key={i} object={line} />
+      ))}
+    </>
+  );
+}
+
 function PitchPlayerHudContent({
   activeId,
   showClose,
@@ -1200,6 +1283,8 @@ type PitchSceneProps = {
   showPlayerNumbers: boolean;
   /** When set, append one sample per unique bundle frame for running traces. */
   trackingFrameId?: number | null;
+  /** Draw pairwise edges between players in the analytics “best cluster” for this bundle frame. */
+  showClusterNet: boolean;
 };
 
 function PitchScene({
@@ -1213,8 +1298,17 @@ function PitchScene({
   onSelectedPlayerIdChange,
   showPlayerNumbers,
   trackingFrameId,
+  showClusterNet,
 }: PitchSceneProps) {
   const emphasisPlayerId = hoveredPlayerId ?? selectedPlayerId;
+
+  const clusterPlayerIds = useMemo(
+    () =>
+      trackingFrameId != null && Number.isFinite(trackingFrameId)
+        ? bestClusterIdsForBundleFrame(trackingFrameId)
+        : [],
+    [trackingFrameId],
+  );
 
   const onHoverEnter = useCallback(
     (id: string) => setHoveredPlayerId(id),
@@ -1250,6 +1344,11 @@ function PitchScene({
           focusPlayerId={emphasisPlayerId}
           trackingFrameId={trackingFrameId}
           trailColor={FOCUS_PLAYER_COLOR}
+        />
+        <ClusterPlayerNet
+          players={players}
+          clusterPlayerIds={clusterPlayerIds}
+          visible={showClusterNet}
         />
         <PlayerMarkers
           players={players}
@@ -1301,6 +1400,7 @@ export const PitchView = memo(function PitchView({
 }: PitchViewProps) {
   const [overhead, setOverhead] = useState(false);
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(false);
+  const [showClusterNet, setShowClusterNet] = useState(false);
   const [hoveredPlayerId, setHoveredPlayerId] = useState<string | null>(null);
   const themeColors = usePitchThemeColors();
   /** Bottom HUD: hovered marker, else selected player (same priority as marker highlight). */
@@ -1332,6 +1432,16 @@ export const PitchView = memo(function PitchView({
         >
           {showPlayerNumbers ? "Hide numbers" : "Show numbers"}
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="bg-background/75 backdrop-blur-sm"
+          aria-pressed={showClusterNet}
+          onClick={() => setShowClusterNet((v) => !v)}
+        >
+          {showClusterNet ? "Hide cluster net" : "Cluster net"}
+        </Button>
       </div>
       <Canvas
         className="touch-none"
@@ -1355,6 +1465,7 @@ export const PitchView = memo(function PitchView({
           onSelectedPlayerIdChange={onSelectedPlayerIdChange}
           showPlayerNumbers={showPlayerNumbers}
           trackingFrameId={trackingFrameId}
+          showClusterNet={showClusterNet}
         />
       </Canvas>
       {hudPlayerId ? (

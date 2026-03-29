@@ -67,6 +67,8 @@ type SeriesRow = {
   ball_chaos: number[]
   defensive_line: number[]
   line_to_line_acceleration: number[]
+  /** Per sample (stride-aligned): SkillCorner player ids in the best cluster for that frame. */
+  player_clusters_best_player_ids?: number[][]
 }
 
 type FrameSeries = {
@@ -76,6 +78,8 @@ type FrameSeries = {
   ball_chaos: number[]
   defensive_line: number[]
   line_to_line_acceleration: number[]
+  /** Per bundle index: SkillCorner player ids in the best cluster for that frame. */
+  player_clusters_best_player_ids: number[][]
 }
 
 type PhasesPayload = {
@@ -101,11 +105,21 @@ type FramesPayload = {
   ball_chaos: number[]
   defensive_line: number[]
   line_to_line_acceleration: number[]
+  /** Omitted in older exports; padded to match `player_clusters` length when missing. */
+  player_clusters_best_player_ids?: number[][]
   phasesFile?: string
 }
 
 const phasesPart = phaseBreakdownPhases as PhasesPayload
 const framesPart = phaseBreakdownFrames as FramesPayload
+
+function padBestClusterIds(fs: FramesPayload): number[][] {
+  const raw = fs.player_clusters_best_player_ids
+  const n = fs.player_clusters.length
+  if (raw != null && raw.length === n) return raw
+  if (raw != null && raw.length > 0) return raw
+  return Array.from({ length: n }, () => [])
+}
 
 const frameSeries: FrameSeries = {
   trackingFrameIds: framesPart.trackingFrameIds,
@@ -114,6 +128,7 @@ const frameSeries: FrameSeries = {
   ball_chaos: framesPart.ball_chaos,
   defensive_line: framesPart.defensive_line,
   line_to_line_acceleration: framesPart.line_to_line_acceleration,
+  player_clusters_best_player_ids: padBestClusterIds(framesPart),
 }
 
 const payload = {
@@ -216,6 +231,7 @@ function frameSeriesLength(fs: FrameSeries): number {
     fs.ball_chaos.length,
     fs.defensive_line.length,
     fs.line_to_line_acceleration.length,
+    fs.player_clusters_best_player_ids.length,
   )
 }
 
@@ -235,6 +251,7 @@ function chartRowsFromFrameWindow(
     ball_chaos: number
     defensive_line: number
     line_to_line_acceleration: number
+    player_clusters_best_player_ids: number[]
   }> = []
   for (let i = windowStart; i <= hi; i += stride) {
     rows.push({
@@ -244,6 +261,8 @@ function chartRowsFromFrameWindow(
       ball_chaos: fs.ball_chaos[i] ?? 0,
       defensive_line: fs.defensive_line[i] ?? 0,
       line_to_line_acceleration: fs.line_to_line_acceleration[i] ?? 0,
+      player_clusters_best_player_ids:
+        fs.player_clusters_best_player_ids[i] ?? [],
     })
   }
   return rows

@@ -3,7 +3,8 @@
 
 Writes:
   - Phases file: phase metadata, per-phase analysis, seriesByPhaseOrder, export options.
-  - Frames file: parallel arrays per bundle index (tracking frame id + indicator scores).
+  - Frames file: parallel arrays per bundle index (tracking frame id + indicator scores +
+    player_clusters_best_player_ids: per-frame list of SkillCorner player ids in the best cluster).
 
 Run from repo root (default: every phase in the match; full bundle frame scan):
   uv run python scripts/export_phase_breakdown.py
@@ -112,6 +113,7 @@ def _empty_series_row(
         "bundleEnd": bundle_end,
         "t": [],
         **{k: [] for k in INDICATOR_IDS},
+        "player_clusters_best_player_ids": [],
     }
 
 
@@ -272,6 +274,7 @@ def main() -> None:
 
     by_indicator: dict[str, list[float]] = {k: [0.0] * scan_end for k in INDICATOR_IDS}
     tracking_frame_ids: list[int] = [0] * scan_end
+    player_clusters_best_player_ids: list[list[int]] = [[] for _ in range(scan_end)]
 
     pc_analyzed_through = -1
 
@@ -289,6 +292,7 @@ def main() -> None:
         pc_frame = pc.analyze_frame(i)
         assert isinstance(pc_frame, PlayerClusterIndicatorFrame)
         by_indicator["player_clusters"][i] = float(pc_frame.score_raw)
+        player_clusters_best_player_ids[i] = list(pc_frame.best_cluster_player_ids)
         by_indicator["position_change"][i] = float(pos.analyze_frame(i).score)
         by_indicator["ball_chaos"][i] = float(ball.analyze_frame(fid).score)
         by_indicator["defensive_line"][i] = float(dline.analyze_frame(fid).score)
@@ -338,8 +342,10 @@ def main() -> None:
 
         t: list[int] = []
         series_cols: dict[str, list[float]] = {k: [] for k in INDICATOR_IDS}
+        series_best_ids: list[list[int]] = []
         for i in range(lo, hi + 1, args.stride):
             t.append(i - lo)
+            series_best_ids.append(player_clusters_best_player_ids[i])
             for ind in INDICATOR_IDS:
                 series_cols[ind].append(by_indicator[ind][i])
 
@@ -348,6 +354,7 @@ def main() -> None:
             "bundleEnd": hi,
             "t": t,
             **series_cols,
+            "player_clusters_best_player_ids": series_best_ids,
         }
 
     for order_idx in range(len(phase_list)):
@@ -387,10 +394,13 @@ def main() -> None:
         "phasesFile": phases_name,
         "note": (
             "Parallel arrays: index i is the bundle index. "
-            "trackingFrameIds[i] is the tracking frame id for that row."
+            "trackingFrameIds[i] is the tracking frame id for that row. "
+            "player_clusters_best_player_ids[i] lists SkillCorner player ids in the "
+            "highest-scoring spatial cluster for that frame (same scoring as player_clusters)."
         ),
         "trackingFrameIds": tracking_frame_ids,
         **{k: by_indicator[k] for k in INDICATOR_IDS},
+        "player_clusters_best_player_ids": player_clusters_best_player_ids,
     }
 
     out_phases = args.output_phases

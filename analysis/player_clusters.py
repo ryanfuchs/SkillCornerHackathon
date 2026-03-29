@@ -95,6 +95,10 @@ def analyze_frame_buckets(frame_data: FrameData, config: BucketConfig) -> list[B
 
 class PlayerClusterIndicatorFrame(IndicatorFrameBase[PlayerClustersKind]):
     score_raw: float  # score without running median
+    best_cluster_player_ids: list[int] = Field(
+        default_factory=list,
+        description="Player ids in the cluster that maximizes mass×cohesion for score_raw.",
+    )
 
 
 class PlayerClusterIndicatorFrameRange(IndicatorFrameRange[PlayerClustersKind]):
@@ -121,20 +125,23 @@ class PlayerGraph:
                 )
         self._distance_matrix = distance_matrix
 
-    def score_distance_matrix(self) -> float:
+    def score_distance_matrix(self) -> tuple[float, list[int]]:
         """How dominant and tight is the largest close pack of players, in [0, 1].
 
         Uses **all** players in ``player_data`` (positions are always present; ``is_detected``
         is only for camera/visibility and is ignored here). Builds a graph with edges at
-        ``CLUSTER_LINK_M``, finds connected components, and scores the **largest** component as
-        ``(size / n) ** CLUSTER_MASS_EXPONENT × mean_kernel``, then ``× SCORE_STRETCH`` before
-        capping at 1. Pairs for cohesion use ``PAIR_KERNEL_MAX_M``.
+        ``CLUSTER_LINK_M``, finds connected components, and scores each component with at least
+        two players as ``(size / n) ** CLUSTER_MASS_EXPONENT × mean_kernel``, then ``× SCORE_STRETCH``
+        before capping at 1. Pairs for cohesion use ``PAIR_KERNEL_MAX_M``.
+
+        Returns the capped score and the ``player_id`` values for the component that achieved
+        the highest mass×cohesion (empty list if none).
         """
         if self._distance_matrix is None:
-            return 0.0
+            return 0.0, []
         m = len(self.players)
         if m < 2:
-            return 0.0
+            return 0.0, []
 
         dm = self._distance_matrix
         sigma = DISTANCE_SCORE_SIGMA_M
@@ -170,6 +177,7 @@ class PlayerGraph:
 
         n_players = float(m)
         best = 0.0
+        best_members: list[int] = []
         for members_local in groups.values():
             k = len(members_local)
             if k < 2:
@@ -187,9 +195,13 @@ class PlayerGraph:
                 continue
             cohesion = float(np.mean(kernels))
             mass = (k / n_players) ** mass_exp
-            best = max(best, mass * cohesion)
+            candidate = mass * cohesion
+            if candidate > best:
+                best = candidate
+                best_members = list(members_local)
 
-        return float(min(1.0, best * stretch))
+        best_ids = [self.players[i].player_id for i in best_members]
+        return float(min(1.0, best * stretch)), best_ids
 
 
 class PlayerClusterAnalyzer(IndicatorAnalyzer[PlayerClustersKind]):
@@ -206,7 +218,7 @@ class PlayerClusterAnalyzer(IndicatorAnalyzer[PlayerClustersKind]):
         self.config = config
         super().__init__(match_bundle=match_bundle)
 
-    def _score_frame(self, frame_index: int) -> float:
+    def _score_frame(self, frame_index: int) -> tuple[float, list[int]]:
         frame = self.match_bundle.frames[frame_index]
         player_graph = PlayerGraph(frame.player_data)
         return player_graph.score_distance_matrix()
@@ -221,7 +233,7 @@ class PlayerClusterAnalyzer(IndicatorAnalyzer[PlayerClustersKind]):
         ):
             score_sum += self.analyzed_frames[frame_index_].score_raw
             score_count += 1
-        score_raw = self._score_frame(frame_index)
+        score_raw, best_cluster_player_ids = self._score_frame(frame_index)
         score_sum += score_raw
         score_count += 1
         score = score_sum / score_count
@@ -229,6 +241,7 @@ class PlayerClusterAnalyzer(IndicatorAnalyzer[PlayerClustersKind]):
             frame_index=frame_index,
             score=score,
             score_raw=score_raw,
+            best_cluster_player_ids=best_cluster_player_ids,
             indicator_type=IndicatorType.PLAYER_CLUSTERS,
         )
         return cluster_frame

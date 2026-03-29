@@ -13,6 +13,8 @@ type FramesPayload = {
   ball_chaos: number[]
   defensive_line: number[]
   line_to_line_acceleration: number[]
+  /** Per bundle index: SkillCorner player ids in the best player-clusters group for that frame. */
+  player_clusters_best_player_ids?: number[][]
   frameSeriesLength: number
   nFrames?: number
 }
@@ -56,6 +58,9 @@ const R_MAX = 34
 const R_LABEL = R_MAX * 1.2
 
 function analyticsRowCount(): number {
+  const nBest =
+    framesPart.player_clusters_best_player_ids?.length ??
+    framesPart.player_clusters.length
   return Math.min(
     framesPart.frameSeriesLength,
     framesPart.player_clusters.length,
@@ -63,6 +68,7 @@ function analyticsRowCount(): number {
     framesPart.ball_chaos.length,
     framesPart.defensive_line.length,
     framesPart.line_to_line_acceleration.length,
+    nBest,
   )
 }
 
