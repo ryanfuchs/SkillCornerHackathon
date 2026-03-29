@@ -9,6 +9,11 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react'
+import {
+  clampPlaybackSpeed,
+  PLAYBACK_FRAME_MS,
+  PLAYBACK_SPEED_DEFAULT,
+} from '@/lib/playback'
 
 /**
  * Current phase (order index into `phaseBreakdownPhases.json` → `phases`) and bundle frame index
@@ -18,9 +23,6 @@ export type PlaybackIndicator = {
   phaseIndex: number
   frameIndex: number
 }
-
-/** Wall time between bundle frames when playing (10 Hz → 0.1 s per frame). */
-export const PLAYBACK_FRAME_MS = 100
 
 type PlaybackContextValue = PlaybackIndicator & {
   indicator: PlaybackIndicator
@@ -33,6 +35,9 @@ type PlaybackContextValue = PlaybackIndicator & {
   pause: () => void
   resume: () => void
   jumpToFrame: (frameIndex: number) => void
+  /** Wall-clock multiplier for frame stepping (0.2–2). */
+  playbackSpeed: number
+  setPlaybackSpeed: Dispatch<SetStateAction<number>>
 }
 
 const PlaybackContext = createContext<PlaybackContextValue | null>(null)
@@ -42,6 +47,15 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [frameIndex, setFrameIndex] = useState(0)
   const [playbackFrameCount, setPlaybackFrameCount] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
+  const [playbackSpeed, setPlaybackSpeedState] = useState(PLAYBACK_SPEED_DEFAULT)
+
+  const setPlaybackSpeed = useCallback((next: SetStateAction<number>) => {
+    setPlaybackSpeedState((prev) => {
+      const raw =
+        typeof next === 'function' ? next(prev) : next
+      return clampPlaybackSpeed(raw)
+    })
+  }, [])
 
   const jumpToFrame = useCallback(
     (index: number) => {
@@ -70,11 +84,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isPlaying || playbackFrameCount <= 0) return
+    const intervalMs = PLAYBACK_FRAME_MS / playbackSpeed
     const id = window.setInterval(() => {
       setFrameIndex((i) => (i + 1) % playbackFrameCount)
-    }, PLAYBACK_FRAME_MS)
+    }, intervalMs)
     return () => window.clearInterval(id)
-  }, [isPlaying, playbackFrameCount])
+  }, [isPlaying, playbackFrameCount, playbackSpeed])
 
   const value = useMemo<PlaybackContextValue>(
     () => ({
@@ -89,6 +104,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       pause,
       resume,
       jumpToFrame,
+      playbackSpeed,
+      setPlaybackSpeed,
     }),
     [
       phaseIndex,
@@ -98,6 +115,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       pause,
       resume,
       jumpToFrame,
+      playbackSpeed,
+      setPlaybackSpeed,
     ],
   )
 

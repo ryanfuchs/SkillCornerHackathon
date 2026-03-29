@@ -1,5 +1,8 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { Link2, Play } from 'lucide-react'
 import { usePlayback } from '@/context/PlaybackContext'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import type { MomentumTimeline } from '@/hooks/useMatchTracking'
 
 // SRF embed time (seconds): first-half kickoff and second-half kickoff in the broadcast.
@@ -53,35 +56,92 @@ const VIDEO_URN = 'urn:swisstxt:video:srf:1837719'
 
 type Props = {
   timeline: MomentumTimeline | null
+  className?: string
 }
 
-export function VideoPlayer({ timeline }: Props) {
+export function VideoPlayer({ timeline, className }: Props) {
   const { frameIndex } = usePlayback()
+  const [embedLoaded, setEmbedLoaded] = useState(false)
+  const [embedStartTime, setEmbedStartTime] = useState(VIDEO_KICKOFF_START_TIME)
+  const [embedNonce, setEmbedNonce] = useState(0)
 
-  const startTime = useMemo(
+  const mappedStartSeconds = useMemo(
     () => videoEmbedStartSeconds(frameIndex, timeline),
     [frameIndex, timeline],
   )
 
+  const openEmbed = useCallback(
+    (startTime: number) => {
+      setEmbedStartTime(startTime)
+      setEmbedNonce((n) => n + 1)
+      setEmbedLoaded(true)
+    },
+    [],
+  )
+
+  const handleLoadVideo = useCallback(() => {
+    openEmbed(mappedStartSeconds)
+  }, [mappedStartSeconds, openEmbed])
+
+  const handleSync = useCallback(() => {
+    openEmbed(mappedStartSeconds)
+  }, [mappedStartSeconds, openEmbed])
+
   const src = useMemo(() => {
     const params = new URLSearchParams({
       urn: VIDEO_URN,
-      startTime: String(startTime),
+      startTime: String(embedStartTime),
       subdivisions: 'false',
     })
     return `https://www.srf.ch/play/embed?${params.toString()}`
-  }, [startTime])
+  }, [embedStartTime])
 
   return (
-    <div className="h-full min-h-[14rem] w-full overflow-hidden rounded-md border border-border/60 bg-black/20">
-      <iframe
-        key={startTime}
-        title="SRF match video"
-        className="h-full w-full"
-        src={src}
-        allowFullScreen
-        allow="geolocation *; autoplay; encrypted-media"
-      />
+    <div
+      className={cn(
+        'relative flex h-full min-h-[14rem] w-full flex-col overflow-hidden rounded-xl border border-border/70',
+        className,
+      )}
+      style={{
+        backgroundColor: 'var(--video-well)',
+        boxShadow: 'var(--shadow-soft)',
+      }}
+    >
+      {!embedLoaded ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-10 text-center">
+          <p className="max-w-[22rem] text-[13px] leading-relaxed text-muted-foreground">
+            The SRF player loads only after you start it. Use sync after load to jump the
+            broadcast to the same match moment as the timeline.
+          </p>
+          <Button type="button" size="default" onClick={handleLoadVideo}>
+            <Play className="mr-2 size-4" aria-hidden />
+            Load broadcast
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="absolute left-2 top-2 z-10 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="bg-background/85 shadow-sm backdrop-blur-sm"
+              onClick={handleSync}
+            >
+              <Link2 className="mr-1.5 size-3.5" aria-hidden />
+              Sync to current frame
+            </Button>
+          </div>
+          <iframe
+            key={`${embedStartTime}-${embedNonce}`}
+            title="SRF match video"
+            className="h-full min-h-0 w-full flex-1 border-0"
+            src={src}
+            allowFullScreen
+            allow="geolocation *; autoplay; encrypted-media"
+          />
+        </>
+      )}
     </div>
   )
 }

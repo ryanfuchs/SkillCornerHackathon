@@ -3,6 +3,10 @@ import type { PitchPlayer } from "@/components/PitchView";
 import { usePlayback } from "@/context/PlaybackContext";
 
 import trackingUrl from "@/data/2060235_tracking_extrapolated.jsonl?url";
+import {
+  GER_MATCH_COLOR as AWAY_COLOR,
+  SUI_MATCH_COLOR as HOME_COLOR,
+} from "@/lib/matchTeamColors";
 
 /** One JSONL row from SkillCorner-style tracking (10 Hz: one row per 0.1 s). */
 export type TrackingFrame = {
@@ -27,9 +31,6 @@ export type TrackingFrame = {
 function trackingToPitch(jx: number, jy: number): { x: number; y: number } {
   return { x: jy, y: jx };
 }
-
-const HOME_COLOR = "#2563eb";
-const AWAY_COLOR = "#dc2626";
 
 function frameToPitchPlayers(frame: TrackingFrame): PitchPlayer[] {
   const { player_data } = frame;
@@ -78,6 +79,10 @@ export type MomentumTimeline = {
   duration2Min: number;
   formatClockForFrame: (frameIndex: number) => string;
   frameIndexAtChartT: (t01: number) => number;
+  /** Playback row index for a SkillCorner bundle `frame` id, if present in tracking. */
+  rowIndexForBundleFrame: (bundleFrame: number) => number | null;
+  /** Normalized position [0, 1] on the match spine for a bundle frame id. */
+  chartTForBundleFrame: (bundleFrame: number) => number | null;
 };
 
 function parseTimestampToMatchMinutes(ts: string | null | undefined): number | null {
@@ -174,6 +179,21 @@ function buildMomentumTimeline(frames: TrackingFrame[]): MomentumTimeline | null
     return best;
   };
 
+  const rowIndexByBundleFrame = new Map<number, number>();
+  for (let i = 0; i < n; i++) {
+    const fid = frames[i]!.frame;
+    if (!rowIndexByBundleFrame.has(fid)) rowIndexByBundleFrame.set(fid, i);
+  }
+
+  const rowIndexForBundleFrame = (bundleFrame: number) =>
+    rowIndexByBundleFrame.get(bundleFrame) ?? null;
+
+  const chartTForBundleFrame = (bundleFrame: number) => {
+    const idx = rowIndexForBundleFrame(bundleFrame);
+    if (idx == null) return null;
+    return chartT[idx]!;
+  };
+
   return {
     chartT,
     matchMinutes,
@@ -186,6 +206,8 @@ function buildMomentumTimeline(frames: TrackingFrame[]): MomentumTimeline | null
     duration2Min,
     formatClockForFrame,
     frameIndexAtChartT,
+    rowIndexForBundleFrame,
+    chartTForBundleFrame,
   };
 }
 
