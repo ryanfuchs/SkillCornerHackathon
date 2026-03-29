@@ -1,6 +1,10 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { usePlayback } from '@/context/PlaybackContext'
 import phaseBreakdownFrames from '@/data/phaseBreakdownFrames.json'
+import {
+  buildPossessionTeamIdByFrame,
+  possessionAccentColor,
+} from '@/lib/possessionByBundleFrame'
 import { cn } from '@/lib/utils'
 
 type FramesPayload = {
@@ -10,9 +14,14 @@ type FramesPayload = {
   defensive_line: number[]
   line_to_line_acceleration: number[]
   frameSeriesLength: number
+  nFrames?: number
 }
 
 const framesPart = phaseBreakdownFrames as FramesPayload
+
+const POSSESSION_TEAM_ID_BY_FRAME = buildPossessionTeamIdByFrame(
+  framesPart.nFrames ?? framesPart.frameSeriesLength,
+)
 
 const AXES: {
   key: keyof Pick<
@@ -152,7 +161,13 @@ const SpiderRadarChrome = memo(function SpiderRadarChrome() {
   )
 })
 
-function SpiderDataLayer({ values }: { values: number[] }) {
+function SpiderDataLayer({
+  values,
+  vertexDotColor,
+}: {
+  values: number[]
+  vertexDotColor: string
+}) {
   const pts = polygonPointsString(values)
   return (
     <g className="spider-radar-data">
@@ -172,8 +187,8 @@ function SpiderDataLayer({ values }: { values: number[] }) {
             cx={p.x}
             cy={p.y}
             r={1.15}
-            fill="var(--primary, #1a3263)"
-            className="dark:fill-[#e8e2db]"
+            fill={vertexDotColor}
+            className="transition-[fill] duration-200 ease-out"
           />
         )
       })}
@@ -244,6 +259,20 @@ function FrameIndicatorSpiderBody({
   const { frameIndex, playbackFrameCount } = usePlayback()
   const smoothed = useSmoothedIndicatorRow(frameIndex, rowCap, 0.22)
 
+  const possessionTeamId = useMemo(() => {
+    if (playbackFrameCount <= 0) return -1
+    const f = Math.min(
+      Math.max(0, frameIndex),
+      POSSESSION_TEAM_ID_BY_FRAME.length - 1,
+    )
+    return POSSESSION_TEAM_ID_BY_FRAME[f]!
+  }, [frameIndex, playbackFrameCount])
+
+  const vertexDotColor = useMemo(
+    () => possessionAccentColor(possessionTeamId),
+    [possessionTeamId],
+  )
+
   return (
     <div className={cn('h-full min-h-[14rem] w-full', className)}>
       <p className="px-1 pb-2 text-[11px] text-[#86868b] tabular-nums dark:text-[#98989d]">
@@ -263,7 +292,10 @@ function FrameIndicatorSpiderBody({
         >
           <title>Match analytics radar (five indicators, 0–1)</title>
           <SpiderRadarChrome />
-          <SpiderDataLayer values={smoothed} />
+          <SpiderDataLayer
+            values={smoothed}
+            vertexDotColor={vertexDotColor}
+          />
         </svg>
       </div>
     </div>
