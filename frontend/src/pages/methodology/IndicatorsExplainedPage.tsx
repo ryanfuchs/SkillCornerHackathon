@@ -29,7 +29,7 @@ export function IndicatorsExplainedPage() {
           Indicator calculations
         </h1>
         <p className="mt-5 text-[19px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
-          These definitions match the Python analyzers under{' '}
+          These definitions match the Python analyzers under{" "}
           <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
             analysis/
           </code>
@@ -38,29 +38,37 @@ export function IndicatorsExplainedPage() {
         </p>
 
         <Section title="Player clusters">
-          <IndicatorMetricMiniPitch variant="player_clusters" className="max-w-[min(100%,280px)]" />
+          <IndicatorMetricMiniPitch
+            variant="player_clusters"
+            className="max-w-[min(100%,280px)]"
+          />
           <p>
-            Every frame begins with pairwise distances between detected outfield
-            players. Each pair within ten metres gets a proximity score{' '}
-            <span className="whitespace-nowrap font-mono text-[15px]">
-              1 / (1 + d/σ)
-            </span>{' '}
-            with σ set to one metre. Pairs beyond ten metres are ignored. The
-            frame score is the median of the remaining pairwise scores. A short
-            running average over recent frames smooths the trace so it is easier
-            to read.
+            Nearby players are grouped into spatial clusters. Each cluster is
+            scored by how large it is and how tightly its members sit together.
+            The strongest cluster sets the final player clustering score for
+            that frame.
+          </p>
+          <p>
+            The analyzer writes one value per frame from zero to one. A short
+            running average over recent frames smooths the trace for the
+            timeline, and the app keeps the winning cluster's player ids for
+            pitch overlays.
           </p>
           <p>
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
-            </strong>{' '}
-            values mean players are generally closer together (more compact
-            clustering).
+            </strong>{" "}
+            values mean the most compact cluster is both sizable (it covers a
+            meaningful share of the outfield) and dense (its members sit close
+            to one another).
           </p>
         </Section>
 
         <Section title="Position change">
-          <IndicatorMetricMiniPitch variant="position_change" className="max-w-[min(100%,280px)]" />
+          <IndicatorMetricMiniPitch
+            variant="position_change"
+            className="max-w-[min(100%,280px)]"
+          />
           <p>
             Players land on a discrete tactical grid of inferred positions in
             the current frame and again in the previous frame. For every player
@@ -69,18 +77,21 @@ export function IndicatorsExplainedPage() {
             squad.
           </p>
           <p>
-            We divide that raw sum by a fixed ceiling and publish the result as a
-            score from zero to one.{' '}
+            We divide that raw sum by a fixed ceiling and publish the result as
+            a score from zero to one.{" "}
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
-            </strong>{' '}
+            </strong>{" "}
             values mean the group moved more collectively from one frame to the
             next.
           </p>
         </Section>
 
         <Section title="Ball chaos">
-          <IndicatorMetricMiniPitch variant="ball_chaos" className="max-w-[min(100%,280px)]" />
+          <IndicatorMetricMiniPitch
+            variant="ball_chaos"
+            className="max-w-[min(100%,280px)]"
+          />
           <p>
             When the ball is detected we blend four ingredients. Height matters
             up to a cap of three metres. Distance to the nearest goal raises the
@@ -93,7 +104,7 @@ export function IndicatorsExplainedPage() {
           <p>
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
-            </strong>{' '}
+            </strong>{" "}
             values highlight stretches that feel fast, aerial, close to goal, or
             aimed into the box, which is where chaotic attacking play usually
             shows up.
@@ -101,37 +112,44 @@ export function IndicatorsExplainedPage() {
         </Section>
 
         <Section title="Defensive line">
-          <IndicatorMetricMiniPitch variant="defensive_line" className="max-w-[min(100%,280px)]" />
+          <IndicatorMetricMiniPitch
+            variant="defensive_line"
+            className="max-w-[min(100%,280px)]"
+          />
           <p>
-            Whenever we know who has the ball, the defending outfield players sit
-            on a tactical shape graph. The metric studies the deepest line in
-            tactical depth bands and measures how even the spacing is and how
+            Whenever we know who has the ball, the defending outfield players
+            sit on a tactical shape graph. The metric studies the deepest line
+            in tactical depth bands and measures how even the spacing is and how
             smooth the line looks in depth.
           </p>
           <p>
-            Missing possession or shape inference forces the score to zero.{' '}
+            Missing possession or shape inference forces the score to zero.{" "}
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
-            </strong>{' '}
+            </strong>{" "}
             values describe a defensive line that looks more orderly under the
             geometry we encode in the model.
           </p>
         </Section>
 
         <Section title="Line to line acceleration">
-          <IndicatorMetricMiniPitch variant="line_to_line_acceleration" className="max-w-[min(100%,280px)]" />
+          <IndicatorMetricMiniPitch
+            variant="line_to_line_acceleration"
+            className="max-w-[min(100%,280px)]"
+          />
           <p>
-            For the team in possession we take the most advanced tactical line of
-            outfielders and compare it with the deepest line on the defending
-            side. Accelerations come from positional change in steps of one tenth
-            of a second. We compare mean forward acceleration on the attacking
-            line with the same quantity on the defensive line, then map the gap
-            onto a scale from zero to one using a fixed offset and gain.
+            For the team in possession we take the most advanced tactical line
+            of outfielders and compare it with the deepest line on the defending
+            side. Accelerations come from positional change in steps of one
+            tenth of a second. We compare mean forward acceleration on the
+            attacking line with the same quantity on the defensive line, then
+            map the gap onto a scale from zero to one using a fixed offset and
+            gain.
           </p>
           <p>
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
-            </strong>{' '}
+            </strong>{" "}
             values mean the attack is surging forward faster than the back line
             is responding, which is the kinematic signature of pressing space
             behind the defense.
@@ -139,5 +157,5 @@ export function IndicatorsExplainedPage() {
         </Section>
       </main>
     </SiteLayout>
-  )
+  );
 }

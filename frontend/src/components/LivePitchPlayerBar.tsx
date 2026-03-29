@@ -40,12 +40,15 @@ type LivePitchPlayerBarProps = {
   pitchPlayerIds: readonly string[];
   selectedId: string | null;
   onSelectedIdChange: (id: string | null) => void;
+  /** For guided tours (react-joyride). */
+  dataTour?: string;
 };
 
 export function LivePitchPlayerBar({
   pitchPlayerIds,
   selectedId,
   onSelectedIdChange,
+  dataTour,
 }: LivePitchPlayerBarProps) {
   const sortedIds = useMemo(() => {
     const ids = pitchPlayerIds.filter((id) => id in PLAYERS);
@@ -67,7 +70,10 @@ export function LivePitchPlayerBar({
   const info = selectedId ? PLAYERS[selectedId] : undefined;
 
   return (
-    <div className="flex min-h-10 flex-col gap-2 border-b border-black/[0.06] px-3 pb-2.5 pt-1 sm:flex-row sm:items-center sm:gap-4 dark:border-white/[0.06]">
+    <div
+      data-tour={dataTour}
+      className="flex min-h-10 flex-col gap-2 border-b border-black/[0.06] px-3 pb-2.5 pt-1 sm:flex-row sm:items-center sm:gap-4 dark:border-white/[0.06]"
+    >
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-[11px] font-medium uppercase tracking-wide text-[#86868b] dark:text-[#98989d]">
           Player

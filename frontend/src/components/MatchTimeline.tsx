@@ -104,7 +104,10 @@ export const MatchTimeline = memo(function MatchTimeline({
             <span>Full time</span>
           </div>
 
-          <div className="rounded-[1.25rem] border border-black/[0.06] bg-white/55 p-3 shadow-[0_2px_20px_-10px_rgba(0,0,0,0.1)] backdrop-blur-2xl backdrop-saturate-150 sm:p-4 dark:border-white/[0.08] dark:bg-white/[0.06] dark:shadow-[0_2px_32px_-12px_rgba(0,0,0,0.55)]">
+          <div
+            data-tour="match-timeline"
+            className="rounded-[1.25rem] border border-black/[0.06] bg-white/55 p-3 shadow-[0_2px_20px_-10px_rgba(0,0,0,0.1)] backdrop-blur-2xl backdrop-saturate-150 sm:p-4 dark:border-white/[0.08] dark:bg-white/[0.06] dark:shadow-[0_2px_32px_-12px_rgba(0,0,0,0.55)]"
+          >
             <div
               ref={trackRef}
               role="slider"
@@ -165,28 +168,60 @@ export const MatchTimeline = memo(function MatchTimeline({
                 </div>
               ) : null}
 
-              {moments.map((m) => (
-                <button
-                  key={`${m.frame}-${m.kind}`}
-                  type="button"
-                  title={m.label}
-                  className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1d1d1f]/35 dark:border-[#2c2c2e] dark:focus-visible:outline-white/40"
-                  style={{
-                    left: `${m.t * 100}%`,
-                    width: m.kind === "goal" ? 12 : 9,
-                    height: m.kind === "goal" ? 12 : 9,
-                    backgroundColor: momentColor(m.kind),
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const idx = timeline?.rowIndexForBundleFrame(m.frame);
-                    if (idx != null) jumpToFrame(idx);
-                  }}
-                  onMouseEnter={() => setHoverMoment(m)}
-                  onMouseLeave={() => setHoverMoment(null)}
-                  aria-label={m.label}
-                />
-              ))}
+              {moments
+                .filter((m) => m.kind === "shot")
+                .map((m, shotIndex) => (
+                  <button
+                    key={`shot-${m.frame}`}
+                    type="button"
+                    title={m.label}
+                    data-tour={
+                      shotIndex === 0 ? "match-timeline-shots" : undefined
+                    }
+                    className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1d1d1f]/35 dark:border-[#2c2c2e] dark:focus-visible:outline-white/40"
+                    style={{
+                      left: `${m.t * 100}%`,
+                      width: 9,
+                      height: 9,
+                      backgroundColor: momentColor("shot"),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const idx = timeline?.rowIndexForBundleFrame(m.frame);
+                      if (idx != null) jumpToFrame(idx);
+                    }}
+                    onMouseEnter={() => setHoverMoment(m)}
+                    onMouseLeave={() => setHoverMoment(null)}
+                    aria-label={m.label}
+                  />
+                ))}
+              {moments
+                .filter((m) => m.kind === "goal")
+                .map((m, goalIndex) => (
+                  <button
+                    key={`goal-${m.frame}`}
+                    type="button"
+                    title={m.label}
+                    data-tour={
+                      goalIndex === 0 ? "match-timeline-goals" : undefined
+                    }
+                    className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1d1d1f]/35 dark:border-[#2c2c2e] dark:focus-visible:outline-white/40"
+                    style={{
+                      left: `${m.t * 100}%`,
+                      width: 12,
+                      height: 12,
+                      backgroundColor: momentColor("goal"),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const idx = timeline?.rowIndexForBundleFrame(m.frame);
+                      if (idx != null) jumpToFrame(idx);
+                    }}
+                    onMouseEnter={() => setHoverMoment(m)}
+                    onMouseLeave={() => setHoverMoment(null)}
+                    aria-label={m.label}
+                  />
+                ))}
 
               {playT != null && playbackFrameCount > 0 ? (
                 <div
@@ -255,6 +290,7 @@ export const MatchTimeline = memo(function MatchTimeline({
 
       <div className="flex justify-center px-1">
         <div
+          data-tour="match-timeline-playback"
           className="inline-flex max-w-full flex-wrap items-center justify-center gap-x-1 gap-y-2 rounded-full border border-black/[0.06] bg-white/60 px-3 py-2 shadow-[0_2px_24px_-10px_rgba(0,0,0,0.12)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-white/[0.07] dark:shadow-[0_2px_40px_-12px_rgba(0,0,0,0.65)] sm:gap-x-2 sm:px-5 sm:py-2.5"
           role="group"
           aria-label="Playback controls"

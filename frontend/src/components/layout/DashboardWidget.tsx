@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils'
 type DashboardWidgetProps = {
   title: string
   subtitle?: string
+  /** For guided tours (react-joyride targets). */
+  dataTour?: string
   children: ReactNode
   className?: string
   contentClassName?: string
@@ -23,6 +25,7 @@ type DashboardWidgetProps = {
 export function DashboardWidget({
   title,
   subtitle,
+  dataTour,
   children,
   className,
   contentClassName,
@@ -49,6 +52,7 @@ export function DashboardWidget({
   if (bare) {
     return (
       <div
+        data-tour={dataTour}
         className={cn(
           'flex min-h-0 flex-col overflow-hidden rounded-[1.35rem] border border-black/[0.06] bg-white/72 shadow-[0_2px_28px_-14px_rgba(0,0,0,0.14)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-white/[0.06] dark:shadow-[0_2px_40px_-12px_rgba(0,0,0,0.65)]',
           className,
@@ -63,6 +67,7 @@ export function DashboardWidget({
 
   return (
     <div
+      data-tour={dataTour}
       className={cn(
         'flex min-h-0 flex-col overflow-hidden rounded-[1.35rem] border border-black/[0.06] bg-white/72 shadow-[0_2px_28px_-14px_rgba(0,0,0,0.14)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-white/[0.06] dark:shadow-[0_2px_40px_-12px_rgba(0,0,0,0.65)]',
         className,

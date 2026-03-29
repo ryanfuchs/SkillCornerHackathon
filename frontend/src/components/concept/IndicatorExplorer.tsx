@@ -56,7 +56,7 @@ const INDICATORS: {
     accent: '#a855f7',
     metricVariant: 'player_clusters',
     summary:
-      'Players join a fully connected proximity graph each frame and distances pass through an inverse sigmoid. Tight packs lift the score while stretched shapes pull it down.',
+      'Nearby players are grouped into spatial clusters. Each cluster is scored by how large it is and how tightly its members sit together. The strongest cluster sets the final player clustering score.',
   },
 ]
 

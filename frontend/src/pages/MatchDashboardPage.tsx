@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { EVENTS, Joyride, type Step } from 'react-joyride'
 import { LivePitchPlayerBar } from '@/components/LivePitchPlayerBar'
 import { FrameIndicatorSpider } from '@/components/FrameIndicatorSpider'
 import { MatchTimeline } from '@/components/MatchTimeline'
@@ -57,6 +58,95 @@ function playerNameFromGoalLabel(who: string): string {
 
 type RightAsidePanel = 'broadcast' | 'analytics'
 
+function matchTourSteps(setAside: (p: RightAsidePanel) => void): Step[] {
+  const delayAside = () =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 200)
+    })
+  return [
+    {
+      target: '[data-tour="match-score-line"]',
+      title: 'Score',
+      content:
+        'The live scoreline and goal scorers track the match state for the frame you are viewing.',
+      placement: 'bottom',
+    },
+    {
+      target: '[data-tour="match-timeline"]',
+      title: 'Timeline',
+      content:
+        'Drag the strip or use the keyboard to scrub through the match; playback stays aligned with tracking and video.',
+      placement: 'bottom',
+    },
+    {
+      target: '[data-tour="match-timeline-shots"]',
+      title: 'Shots on the timeline',
+      content:
+        'Shot markers jump to key attempts; click a dot to seek straight to that moment.',
+      placement: 'top',
+      spotlightPadding: 14,
+    },
+    {
+      target: '[data-tour="match-timeline-goals"]',
+      title: 'Goals on the timeline',
+      content:
+        'Goals are highlighted distinctly; use them to revisit score-changing frames quickly.',
+      placement: 'top',
+      spotlightPadding: 14,
+    },
+    {
+      target: '[data-tour="match-timeline-playback"]',
+      title: 'Playback',
+      content:
+        'Match clock, playback speed, and play/pause keep the run in sync with the timeline.',
+      placement: 'top',
+    },
+    {
+      target: '[data-tour="match-live-pitch"]',
+      title: 'Live pitch',
+      content:
+        'The pitch shows extrapolated player and ball positions at the current frame.',
+      placement: 'left',
+    },
+    {
+      target: '[data-tour="match-live-pitch-toggles"]',
+      title: 'Pitch controls',
+      content:
+        'Pick a player to inspect details and follow them on the pitch.',
+      placement: 'bottom',
+    },
+    {
+      target: '[data-tour="match-broadcast"]',
+      title: 'Broadcast',
+      content:
+        'Broadcast video loads on demand and seeks with the same match clock as the timeline.',
+      placement: 'left',
+      before: async () => {
+        setAside('broadcast')
+        await delayAside()
+      },
+    },
+    {
+      target: '[data-tour="match-frame-indicators"]',
+      title: 'Frame indicators',
+      content:
+        'Five smoothed analytics for the current frame, shown as a radar compared to rolling context.',
+      placement: 'left',
+      before: async () => {
+        setAside('analytics')
+        await delayAside()
+      },
+    },
+    {
+      target: '[data-tour="match-phase-breakdown"]',
+      title: 'Phase breakdown',
+      content:
+        'See how indicators evolve across the match within the rolling window.',
+      placement: 'top',
+    },
+  ]
+}
+
 export function MatchDashboardPage() {
   const { players, ball, loadError, loaded, momentumTimeline, frame } =
     useMatchTracking()
@@ -83,11 +173,46 @@ export function MatchDashboardPage() {
   }, [momentumTimeline, frame])
   const [openAside, setOpenAside] = useState<RightAsidePanel>('analytics')
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
+  const [runTour, setRunTour] = useState(false)
+  const tourSteps = useMemo(
+    () => matchTourSteps(setOpenAside),
+    [setOpenAside],
+  )
 
   return (
     <SiteLayout dashboard>
+      <Joyride
+        run={runTour}
+        continuous
+        scrollToFirstStep
+        steps={tourSteps}
+        options={{
+          showProgress: true,
+          primaryColor: '#1a3263',
+          zIndex: 10_000,
+        }}
+        onEvent={(data) => {
+          if (
+            data.type === EVENTS.TOUR_END ||
+            data.status === 'finished' ||
+            data.status === 'skipped'
+          ) {
+            setRunTour(false)
+          }
+        }}
+      />
       <div className="dashboard-apple w-full px-3 pb-12 pt-6 sm:px-4 md:px-5 lg:px-6 xl:px-8 lg:pt-8">
-        <section className={cn(shell, 'px-5 py-7 sm:px-8 sm:py-8')}>
+        <section className={cn(shell, 'relative px-5 py-7 sm:px-8 sm:py-8')}>
+          <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+            <button
+              type="button"
+              className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1.5 text-[12px] font-semibold text-[#1d1d1f] shadow-sm backdrop-blur-md transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.12] dark:bg-white/[0.08] dark:text-[#f5f5f7] dark:hover:bg-white/[0.12]"
+              disabled={!momentumTimeline || Boolean(loadError)}
+              onClick={() => setRunTour(true)}
+            >
+              Tour
+            </button>
+          </div>
           <p className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-[#86868b] dark:text-[#98989d]">
             {matchData.competition}
             <span className="mx-2 opacity-40">·</span>
@@ -119,7 +244,10 @@ export function MatchDashboardPage() {
                 </div>
               </div>
 
-              <div className="col-start-2 row-start-1 flex flex-col items-center gap-1 px-1 sm:px-2">
+              <div
+                data-tour="match-score-line"
+                className="col-start-2 row-start-1 flex flex-col items-center gap-1 px-1 sm:px-2"
+              >
                 <span className="text-[13px] font-medium text-[#86868b] dark:text-[#98989d]">
                   Score
                 </span>
@@ -222,8 +350,12 @@ export function MatchDashboardPage() {
               }
               selectedId={selectedPlayerId}
               onSelectedIdChange={setSelectedPlayerId}
+              dataTour="match-live-pitch-toggles"
             />
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/[0.05] bg-[#0a0a0b] dark:border-white/[0.06]">
+            <div
+              data-tour="match-live-pitch"
+              className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/[0.05] bg-[#0a0a0b] dark:border-white/[0.06]"
+            >
               <PitchView
                 players={loaded ? players : undefined}
                 ballPosition={loaded ? ball : undefined}
@@ -238,6 +370,7 @@ export function MatchDashboardPage() {
             <DashboardWidget
               title="Broadcast"
               subtitle="Load on demand · sync to timeline"
+              dataTour="match-broadcast"
               className={cn(
                 'lg:min-h-0',
                 openAside === 'broadcast' ? 'lg:flex-1' : 'shrink-0',
@@ -259,6 +392,7 @@ export function MatchDashboardPage() {
             <DashboardWidget
               title="Frame indicators"
               subtitle="Five analytics · smoothed vs playback"
+              dataTour="match-frame-indicators"
               className={cn(
                 'lg:min-h-0',
                 openAside === 'analytics' ? 'lg:flex-1' : 'shrink-0',
@@ -279,6 +413,7 @@ export function MatchDashboardPage() {
         <DashboardWidget
           title="Phase breakdown"
           subtitle="Rolling window · five indicators"
+          dataTour="match-phase-breakdown"
           className="mt-4"
           contentClassName="pt-1"
         >
