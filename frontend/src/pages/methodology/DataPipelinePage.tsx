@@ -7,10 +7,19 @@ export function DataPipelinePage() {
       <main className="mx-auto max-w-[720px] px-6 pb-24 pt-12 sm:pt-16">
         <p className="text-[15px] font-medium text-[#86868b] dark:text-[#98989d]">
           <Link
+            to="/methodology"
+            className="text-[#0066cc] hover:underline dark:text-[#2997ff]"
+          >
+            ← Concept
+          </Link>
+          <span className="mx-2 opacity-40" aria-hidden>
+            ·
+          </span>
+          <Link
             to="/methodology/indicators"
             className="text-[#0066cc] hover:underline dark:text-[#2997ff]"
           >
-            ← Indicator calculations
+            Indicator calculations
           </Link>
         </p>
         <h1 className="mt-4 text-[40px] font-semibold leading-tight tracking-tight text-[#1d1d1f] sm:text-[44px] dark:text-[#f5f5f7]">

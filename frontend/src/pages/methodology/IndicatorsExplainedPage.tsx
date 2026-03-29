@@ -26,7 +26,24 @@ export function IndicatorsExplainedPage() {
   return (
     <SiteLayout marketing>
       <main className="mx-auto max-w-[720px] px-6 pb-24 pt-12 sm:pt-16">
-        <h1 className="text-[40px] font-semibold leading-tight tracking-tight text-[#1d1d1f] sm:text-[44px] dark:text-[#f5f5f7]">
+        <p className="text-[15px] font-medium text-[#86868b] dark:text-[#98989d]">
+          <Link
+            to="/methodology"
+            className="text-[#0066cc] hover:underline dark:text-[#2997ff]"
+          >
+            ← Concept
+          </Link>
+          <span className="mx-2 opacity-40" aria-hidden>
+            ·
+          </span>
+          <Link
+            to="/methodology/data-pipeline"
+            className="text-[#0066cc] hover:underline dark:text-[#2997ff]"
+          >
+            Data pipeline
+          </Link>
+        </p>
+        <h1 className="mt-4 text-[40px] font-semibold leading-tight tracking-tight text-[#1d1d1f] sm:text-[44px] dark:text-[#f5f5f7]">
           Indicator calculations
         </h1>
         <p className="mt-5 text-[19px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">

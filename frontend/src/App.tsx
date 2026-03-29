@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { LandingPage } from '@/pages/LandingPage'
 import { MatchDashboardPage } from '@/pages/MatchDashboardPage'
 import { ConceptPage } from '@/pages/ConceptPage'
@@ -7,7 +8,9 @@ import { IndicatorsExplainedPage } from '@/pages/methodology/IndicatorsExplained
 
 function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/match" element={<MatchDashboardPage />} />
       <Route path="/methodology" element={<ConceptPage />} />
@@ -25,6 +28,7 @@ function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }
 
