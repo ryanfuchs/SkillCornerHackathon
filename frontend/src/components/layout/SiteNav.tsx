@@ -34,7 +34,7 @@ export function SiteNav() {
             Match
           </NavLink>
           <NavLink to="/methodology" className={navLinkClass}>
-            Analysis
+            Concept
           </NavLink>
         </nav>
       </div>

@@ -38,7 +38,7 @@ export function LandingPage() {
                 'h-11 rounded-full border-black/10 bg-white/80 px-8 text-[15px] dark:border-white/15 dark:bg-white/5',
               )}
             >
-              How we calculate
+              The concept
             </Link>
           </div>
         </section>
