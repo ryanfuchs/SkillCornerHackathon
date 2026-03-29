@@ -1,8 +1,5 @@
-from position_analysis import frame_to_positions
-
 import numpy as np
 from pydantic import Field
-from parsing.match import MatchBundle
 
 from analysis.indicators import (
     IndicatorAnalyzer, 
@@ -11,134 +8,143 @@ from analysis.indicators import (
     IndicatorType,
     DefensiveLineKind
 )
+from parsing.match import MatchBundle
+from position_analysis import frame_to_positions, get_player_team
 
-
-# 1. Define the Frame Metadata
+# 1. Define the Frame Metadata (Now with Home and Away!)
 class DefensiveLineFrame(IndicatorFrameBase[DefensiveLineKind]):
-    jaggedness_score: float = Field(ge=0, le=1)
-    spacing_score: float = Field(ge=0, le=1)
-    defenders_in_line: int
-    defending_team_id: int | None
+    home_score: float = Field(ge=0, le=1)
+    home_jaggedness: float = Field(ge=0, le=1)
+    home_spacing: float = Field(ge=0, le=1)
+    home_defenders: int
+    
+    away_score: float = Field(ge=0, le=1)
+    away_jaggedness: float = Field(ge=0, le=1)
+    away_spacing: float = Field(ge=0, le=1)
+    away_defenders: int
 
 class DefensiveLineFrameRange(IndicatorFrameRange[DefensiveLineKind]):
     pass
 
-
+# 2. Create the Analyzer
 class DefensiveLineAnalyzer(IndicatorAnalyzer[DefensiveLineKind]):
     def __init__(self, match_bundle: MatchBundle):
         super().__init__(match_bundle)
         self._frames_by_id = {f.frame: f for f in self.match_bundle.frames}
-        self.player_to_team = {
-            p.id: p.team_id for p in self.match_bundle.match_data.players
-        }
+        
+        # Map players to teams, and figure out who is Home/Away
+        match_id = self.match_bundle.match_data.id
+        team_df = get_player_team(match_id)
+        
+        self.player_to_team = dict(zip(team_df["id"], team_df["team_id"]))
+        
+        # Find the unique Home and Away Team IDs
+        self.home_team_id = team_df[team_df["is_home"] == True]["team_id"].iloc[0]
+        self.away_team_id = team_df[team_df["is_home"] == False]["team_id"].iloc[0]
+
+    def _calculate_team_line(self, team_id: int, current_frame) -> tuple[float, float, float, int]:
+        team_players = {}
+        
+        EXCLUDED_GK_IDS = {12546,8182}
+        
+        for p in current_frame.player_data:
+            if self.player_to_team.get(p.player_id) == team_id:
+                if p.player_id not in EXCLUDED_GK_IDS:
+                    team_players[p.player_id] = (p.x, p.y)
+
+        # Failsafe: Not enough outfield players tracked right now
+        if len(team_players) < 3:
+            return 0.0, 0.0, 0.0, len(team_players)
+
+        # 2. Run the shape graph with ONLY outfield players
+        try:
+            tactical_grid = frame_to_positions(team_players)
+        except Exception:
+            return 0.0, 0.0, 0.0, len(team_players)
+
+        # 3. Figure out which side they are defending to sort the lines
+        avg_x = np.mean([coords[0] for coords in team_players.values()])
+        unique_tactical_x = sorted(list(set(pos[0] for pos in tactical_grid.values())))
+
+        if avg_x < 0:
+            tactical_lines = unique_tactical_x # Defending Left
+        else:
+            tactical_lines = sorted(unique_tactical_x, reverse=True) # Defending Right
+
+        # 4. Grab the back line
+        target_tactical_x = tactical_lines[0]
+        back_line_coords = [
+            team_players[p_id] for p_id, tac_pos in tactical_grid.items() if tac_pos[-1] == target_tactical_x
+        ]
+
+        # 5. Merge with midfield if backline is broken (< 3 players)
+        if len(back_line_coords) < 3 and len(tactical_lines) > 1:
+            second_line_coords = [
+                team_players[p_id] for p_id, tac_pos in tactical_grid.items() if tac_pos[0] == tactical_lines[0]
+            ]
+            back_line_coords.extend(second_line_coords)
+
+        # If STILL broken after combining Defenders + Midfielders, max chaos!
+        if len(back_line_coords) < 3:
+            return 0.0, 0.0, 0.0, len(back_line_coords)
+
+        # --- MATH ---
+        x_coords = [c[0] for c in back_line_coords]
+        jaggedness_meters = np.std(x_coords)
+        jaggedness_score = max(0.0, min(jaggedness_meters / 9.0, 1.0))
+
+        y_coords = sorted([c[1] for c in back_line_coords])
+        gaps = [y_coords[i+1] - y_coords[i] for i in range(len(y_coords)-1)]
+        spacing_std_dev = np.std(gaps) if len(gaps) > 0 else 0.0
+        spacing_score = max(0.0, min(spacing_std_dev / 8.0, 1.0))
+
+        total_score = (jaggedness_score * 0.5) + (spacing_score * 0.5)
+        
+        return total_score, jaggedness_score, spacing_score, len(back_line_coords)
 
     def _analyze_frame(self, frame_index: int) -> DefensiveLineFrame:
         current_frame = self._frames_by_id.get(frame_index)
         
-        # Default empty frame if data is missing or ball is out of play
-        empty_frame = DefensiveLineFrame(
-            frame_index=frame_index, indicator_type=IndicatorType.DEFENSIVE_LINE,
-            score=0.0, jaggedness_score=0.0, spacing_score=0.0,
-            defenders_in_line=0, defending_team_id=None
-        )
-
-        if not current_frame or not current_frame.possession.player_id:
-            return empty_frame
-
-        # 1. Figure out who is defending
-        pos_team = current_frame.possession.group
-        
-        if not pos_team:
-            return empty_frame
-
-        # Extract only the defending team's outfield players (assuming GK is usually the deepest)
-        defending_players = {}
-        for p in current_frame.player_data:
-            team_id = self.player_to_team.get(p.player_id)
-            # Only grab defending players who are actually detected
-            if team_id is not None and team_id != pos_team:
-                defending_players[p.player_id] = (p.x, p.y)
-
-        # We need at least a few players to form a shape graph
-        if len(defending_players) < 3:
-            return empty_frame
-
-        # 2. Use Ryan's Shape Graph to get tactical positions
-        try:
-            # Returns {player_id: (tactical_x, tactical_y)}
-            tactical_grid = frame_to_positions(defending_players)
-        except Exception:
-            print(" frame_to_positions failed for the frame")
-            return empty_frame # Catch any Delaunay Triangulation errors
-
-        avg_x = np.mean([coords[0] for coords in defending_players.values()])
-        
-        # Get all the unique tactical "lines" (X-coordinates in Ryan's grid)
-        unique_tactical_x = sorted(list(set(pos[0] for pos in tactical_grid.values())))
-
-        # Sort the lines from closest-to-goal to furthest-from-goal
-        if avg_x < 0:
-            # Defending left goal: Lowest tactical X is closest to goal
-            tactical_lines = unique_tactical_x
-        else:
-            # Defending right goal: Highest tactical X is closest to goal
-            tactical_lines = sorted(unique_tactical_x, reverse=True)
-
-        # Grab the players in the very last line
-        target_tactical_x = tactical_lines[0]
-        back_line_coords = [
-            defending_players[p_id] 
-            for p_id, tac_pos in tactical_grid.items() 
-            if tac_pos[0] == target_tactical_x
-        ]
-
-        # --- THE NEW ADDITION: MERGE THE SECOND LINE ---
-        # If the back line has < 3 players, grab the deepest midfielders too!
-        if len(back_line_coords) < 3 and len(tactical_lines) > 1:
-            second_line_x = tactical_lines[1]
-            second_line_coords = [
-                defending_players[p_id] 
-                for p_id, tac_pos in tactical_grid.items() 
-                if tac_pos[0] == second_line_x
-            ]
-            # Add the midfielders into the back line array
-            back_line_coords.extend(second_line_coords)
-
-        # If it is STILL less than 3 even after combining them (very rare), max chaos
-        if len(back_line_coords) < 3:
+        if not current_frame:
             return DefensiveLineFrame(
-                frame_index=frame_index, indicator_type=IndicatorType.DEFENSIVE_LINE,
-                score=1.0, jaggedness_score=1.0, spacing_score=1.0,
-                defenders_in_line=len(back_line_coords), defending_team_id=None
+                frame_index=frame_index, indicator_type=IndicatorType.DEFENSIVE_LINE, score=0.0,
+                home_score=0.0, home_jaggedness=0.0, home_spacing=0.0, home_defenders=0,
+                away_score=0.0, away_jaggedness=0.0, away_spacing=0.0, away_defenders=0
             )
-        # --- MATH 1: JAGGEDNESS SCORE ---
-        # Standard deviation of their X coordinates. 
-        # A perfectly flat line = 0m std dev. A broken line = 3m+ std dev.
-        x_coords = [c[0] for c in back_line_coords]
-        jaggedness_meters = np.std(x_coords)
-        jaggedness_score = max(0.0, min(jaggedness_meters / 3.0, 1.0)) # Cap at 3 meters
 
-        # --- MATH 2: SPACING SCORE ---
-        # Sort defenders by Y coordinate to find the gaps between them
-        y_coords = sorted([c[1] for c in back_line_coords])
-        gaps = [y_coords[i+1] - y_coords[i] for i in range(len(y_coords)-1)]
+        h_score, h_jag, h_space, h_def = self._calculate_team_line(self.home_team_id, current_frame)
+        a_score, a_jag, a_space, a_def = self._calculate_team_line(self.away_team_id, current_frame)
+
+
         
-        # Standard deviation of the gaps. 
-        # If all gaps are exactly 10m, std dev is 0. If gaps are 5m, 2m, and 15m, std dev is high.
-        spacing_std_dev = np.std(gaps)
-        spacing_score = max(0.0, min(spacing_std_dev / 4.0, 1.0)) # Cap at 4 meters variation
+        phase = next((p for p in self.match_bundle.phases if p.frame_start <= frame_index <= p.frame_end), None)
 
-        # --- MASTER SCORE ---
-        total_score = (jaggedness_score * 0.5) + (spacing_score * 0.5)
+        master_score = 0.0
+
+        if phase:
+            attacking_team_id = phase.team_in_possession_id
+
+
+            if attacking_team_id == self.home_team_id:
+                master_score = a_score 
+            elif attacking_team_id == self.away_team_id:
+                master_score = h_score 
+
+        else:
+            pos_team = current_frame.possession.group
+            if pos_team == self.home_team_id:
+                master_score = a_score 
+            elif pos_team == self.away_team_id:
+                master_score = h_score 
+            else:
+                master_score = (h_score + a_score)/2.0
 
         return DefensiveLineFrame(
             frame_index=frame_index,
             indicator_type=IndicatorType.DEFENSIVE_LINE,
-            score=total_score,
-            jaggedness_score=jaggedness_score,
-            spacing_score=spacing_score,
-            defenders_in_line=len(back_line_coords),
-            defending_team_id=None
+            score=master_score,
+            home_score=h_score, home_jaggedness=h_jag, home_spacing=h_space, home_defenders=h_def,
+            away_score=a_score, away_jaggedness=a_jag, away_spacing=a_space, away_defenders=a_def
         )
 
     def _analyze_frame_range(self, start_frame_index: int, end_frame_index: int) -> DefensiveLineFrameRange:
