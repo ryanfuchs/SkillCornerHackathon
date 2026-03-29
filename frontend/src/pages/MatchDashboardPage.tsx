@@ -229,6 +229,7 @@ export function MatchDashboardPage() {
                 ballPosition={loaded ? ball : undefined}
                 selectedPlayerId={selectedPlayerId}
                 onSelectedPlayerIdChange={setSelectedPlayerId}
+                trackingFrameId={loaded ? frame : null}
               />
             </div>
           </DashboardWidget>

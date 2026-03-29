@@ -92,6 +92,12 @@ const BALL_RADIUS = 0.41;
 
 /** Player discs sit slightly above line markings to avoid z-fighting. */
 const PLAYER_LIFT = LINE_LIFT + 0.06;
+/** Focused-player running trace: current sample + 30 prior frames (~3 s at 10 Hz). */
+const TRAIL_MAX_SAMPLES = 31;
+/** Trail line width in world units (slightly under pitch outline strokes). */
+const TRAIL_LINE_WIDTH = 0.11;
+/** Slightly below player discs so the trace reads under the marker. */
+const TRAIL_Z = PLAYER_LIFT - 0.028;
 const DEFAULT_PLAYER_RADIUS = 0.78;
 /** Applied to marker radius when jersey numbers are shown (larger hit + label). */
 const PLAYER_MARKER_NUMBER_SCALE = 1.52;
@@ -964,6 +970,116 @@ function InteractivePlayerCircle({
 
 const MemoInteractivePlayerCircle = memo(InteractivePlayerCircle);
 
+type TrailPoint2D = { x: number; y: number };
+
+function FocusedPlayerBurndownTrail({
+  players,
+  focusPlayerId,
+  trackingFrameId,
+  trailColor,
+}: {
+  players: PitchPlayer[];
+  focusPlayerId: string | null;
+  /** SkillCorner bundle `frame` — advances once per playback step; omit to disable sampling. */
+  trackingFrameId?: number | null;
+  trailColor: string;
+}) {
+  const historyRef = useRef<Map<string, TrailPoint2D[]>>(new Map());
+  const lastSampledFrameRef = useRef<number | null>(null);
+  const [trailVersion, setTrailVersion] = useState(0);
+
+  useLayoutEffect(() => {
+    if (trackingFrameId == null || !Number.isFinite(trackingFrameId)) return;
+    if (lastSampledFrameRef.current === trackingFrameId) return;
+
+    const prev = lastSampledFrameRef.current;
+    if (
+      prev != null &&
+      (trackingFrameId < prev || trackingFrameId > prev + 1)
+    ) {
+      historyRef.current.clear();
+    }
+    lastSampledFrameRef.current = trackingFrameId;
+
+    for (const p of players) {
+      const path = historyRef.current.get(p.id) ?? [];
+      path.push({ x: p.x, y: p.y });
+      while (path.length > TRAIL_MAX_SAMPLES) path.shift();
+      historyRef.current.set(p.id, path);
+    }
+    setTrailVersion((v) => v + 1);
+  }, [players, trackingFrameId]);
+
+  const path =
+    focusPlayerId != null
+      ? (historyRef.current.get(focusPlayerId) ?? null)
+      : null;
+
+  const { size } = useThree();
+
+  const trailLines = useMemo(() => {
+    if (!path || path.length < 2) return [] as Line2[];
+    const n = path.length;
+    const lines: Line2[] = [];
+    const baseColor = new THREE.Color(trailColor);
+    const colorNum = baseColor.getHex();
+
+    for (let i = 0; i < n - 1; i++) {
+      const alpha0 = n > 1 ? i / (n - 1) : 0;
+      const alpha1 = n > 1 ? (i + 1) / (n - 1) : 1;
+      const opacity = (alpha0 + alpha1) / 2;
+
+      const a = path[i]!;
+      const b = path[i + 1]!;
+      const geom = new LineGeometry().setPositions([
+        a.x,
+        -a.y,
+        TRAIL_Z,
+        b.x,
+        -b.y,
+        TRAIL_Z,
+      ]);
+      const mat = new LineMaterial({
+        color: colorNum,
+        linewidth: TRAIL_LINE_WIDTH,
+        worldUnits: true,
+        transparent: true,
+        opacity,
+        depthTest: true,
+      });
+      mat.resolution.set(size.width, size.height);
+      const line = new Line2(geom, mat);
+      line.raycast = noopRaycast;
+      line.renderOrder = -2;
+      lines.push(line);
+    }
+    return lines;
+  }, [path, trailVersion, trailColor, focusPlayerId, size.width, size.height]);
+
+  useLayoutEffect(() => {
+    return () => {
+      for (const l of trailLines) {
+        l.geometry.dispose();
+        (l.material as LineMaterial).dispose();
+      }
+    };
+  }, [trailLines]);
+
+  useLayoutEffect(() => {
+    for (const l of trailLines) {
+      (l.material as LineMaterial).resolution.set(size.width, size.height);
+    }
+  }, [trailLines, size.width, size.height]);
+
+  return (
+    <>
+      {trailLines.map((line, i) => (
+        <primitive key={i} object={line} />
+      ))}
+    </>
+  );
+}
+
 function PitchPlayerHudContent({
   activeId,
   showClose,
@@ -1082,6 +1198,8 @@ type PitchSceneProps = {
   selectedPlayerId: string | null;
   onSelectedPlayerIdChange?: (id: string | null) => void;
   showPlayerNumbers: boolean;
+  /** When set, append one sample per unique bundle frame for running traces. */
+  trackingFrameId?: number | null;
 };
 
 function PitchScene({
@@ -1094,6 +1212,7 @@ function PitchScene({
   selectedPlayerId,
   onSelectedPlayerIdChange,
   showPlayerNumbers,
+  trackingFrameId,
 }: PitchSceneProps) {
   const emphasisPlayerId = hoveredPlayerId ?? selectedPlayerId;
 
@@ -1126,6 +1245,12 @@ function PitchScene({
             <GoalFrame3D yLine={HL} lineColor={themeColors.pitchLine} />
           </>
         )}
+        <FocusedPlayerBurndownTrail
+          players={players}
+          focusPlayerId={emphasisPlayerId}
+          trackingFrameId={trackingFrameId}
+          trailColor={FOCUS_PLAYER_COLOR}
+        />
         <PlayerMarkers
           players={players}
           onHoverEnter={onHoverEnter}
@@ -1160,6 +1285,11 @@ type PitchViewProps = {
   selectedPlayerId?: string | null;
   /** Primary-click on a marker sets the same selection as the player bar dropdown. Pass `null` to clear. */
   onSelectedPlayerIdChange?: (id: string | null) => void;
+  /**
+   * SkillCorner bundle frame index for the current `players` snapshot. Drives the focused-player
+   * running trace (one sample per new frame). Omit when not synced to tracking (no trail).
+   */
+  trackingFrameId?: number | null;
 };
 
 export const PitchView = memo(function PitchView({
@@ -1167,6 +1297,7 @@ export const PitchView = memo(function PitchView({
   ballPosition,
   selectedPlayerId = null,
   onSelectedPlayerIdChange,
+  trackingFrameId,
 }: PitchViewProps) {
   const [overhead, setOverhead] = useState(false);
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(false);
@@ -1223,6 +1354,7 @@ export const PitchView = memo(function PitchView({
           selectedPlayerId={selectedPlayerId}
           onSelectedPlayerIdChange={onSelectedPlayerIdChange}
           showPlayerNumbers={showPlayerNumbers}
+          trackingFrameId={trackingFrameId}
         />
       </Canvas>
       {hudPlayerId ? (
