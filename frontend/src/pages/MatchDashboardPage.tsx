@@ -10,6 +10,7 @@ import { DashboardWidget } from '@/components/layout/DashboardWidget'
 import { SiteLayout } from '@/components/layout/SiteLayout'
 import { useMatchTracking } from '@/hooks/useMatchTracking'
 import { scoreAtBundleFrame } from '@/lib/scoreAtBundleFrame'
+import { GER_MATCH_COLOR, SUI_MATCH_COLOR } from '@/lib/matchTeamColors'
 import { cn } from '@/lib/utils'
 import timelineKeyMoments from '@/data/timelineKeyMoments.json'
 
@@ -238,7 +239,10 @@ export function MatchDashboardPage() {
                     loading="lazy"
                     decoding="async"
                   />
-                  <span className="text-[2.75rem] font-semibold leading-none tracking-tight text-[#1d1d1f] sm:text-[3.25rem] dark:text-[#f5f5f7]">
+                  <span
+                    className="text-[2.75rem] font-semibold leading-none tracking-tight sm:text-[3.25rem]"
+                    style={{ color: SUI_MATCH_COLOR }}
+                  >
                     {matchData.homeTeam}
                   </span>
                 </div>
@@ -251,12 +255,12 @@ export function MatchDashboardPage() {
                 <span className="text-[13px] font-medium text-[#86868b] dark:text-[#98989d]">
                   Score
                 </span>
-                <span className="text-[2rem] font-light tabular-nums tracking-tight text-[#1d1d1f] sm:text-[2.35rem] dark:text-[#f5f5f7]">
-                  {homeScore}
+                <span className="text-[2rem] font-light tabular-nums tracking-tight sm:text-[2.35rem]">
+                  <span style={{ color: SUI_MATCH_COLOR }}>{homeScore}</span>
                   <span className="mx-2 text-[#d2d2d7] dark:text-[#48484a]">
                     –
                   </span>
-                  {awayScore}
+                  <span style={{ color: GER_MATCH_COLOR }}>{awayScore}</span>
                 </span>
               </div>
 
@@ -268,7 +272,10 @@ export function MatchDashboardPage() {
                   Score
                 </span>
                 <div className="flex items-center justify-start gap-3">
-                  <span className="text-[2.75rem] font-semibold leading-none tracking-tight text-[#1d1d1f] sm:text-[3.25rem] dark:text-[#f5f5f7]">
+                  <span
+                    className="text-[2.75rem] font-semibold leading-none tracking-tight sm:text-[3.25rem]"
+                    style={{ color: GER_MATCH_COLOR }}
+                  >
                     {matchData.awayTeam}
                   </span>
                   <img
@@ -285,27 +292,33 @@ export function MatchDashboardPage() {
 
               {goalsBySide.home.length + goalsBySide.away.length > 0 ? (
                 <>
-                  <ul className="col-start-1 row-start-2 min-w-0 max-w-[13rem] justify-self-end space-y-0.5 text-left text-[11px] leading-snug text-[#6e6e73] dark:text-[#a1a1a6]">
+                  <ul className="col-start-1 row-start-2 min-w-0 max-w-[13rem] justify-self-end space-y-0.5 text-left text-[11px] leading-snug">
                     {goalsBySide.home.map((g, i) => (
                       <li key={`h-${g.minute}-${g.player}-${i}`}>
-                        <span className="tabular-nums text-[#86868b] dark:text-[#98989d]">
+                        <span
+                          className="tabular-nums opacity-80"
+                          style={{ color: SUI_MATCH_COLOR }}
+                        >
                           {g.minute}
                         </span>
                         <span className="mx-1.5 text-[#d2d2d7] dark:text-[#48484a]">
                           ·
                         </span>
-                        <span>{g.player}</span>
+                        <span style={{ color: SUI_MATCH_COLOR }}>{g.player}</span>
                       </li>
                     ))}
                   </ul>
-                  <ul className="col-start-3 row-start-2 min-w-0 max-w-[13rem] justify-self-start space-y-0.5 text-right text-[11px] leading-snug text-[#6e6e73] dark:text-[#a1a1a6]">
+                  <ul className="col-start-3 row-start-2 min-w-0 max-w-[13rem] justify-self-start space-y-0.5 text-right text-[11px] leading-snug">
                     {goalsBySide.away.map((g, i) => (
                       <li key={`a-${g.minute}-${g.player}-${i}`}>
-                        <span>{g.player}</span>
+                        <span style={{ color: GER_MATCH_COLOR }}>{g.player}</span>
                         <span className="mx-1.5 text-[#d2d2d7] dark:text-[#48484a]">
                           ·
                         </span>
-                        <span className="tabular-nums text-[#86868b] dark:text-[#98989d]">
+                        <span
+                          className="tabular-nums opacity-80"
+                          style={{ color: GER_MATCH_COLOR }}
+                        >
                           {g.minute}
                         </span>
                       </li>
