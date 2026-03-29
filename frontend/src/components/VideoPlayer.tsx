@@ -1,42 +1,22 @@
 import { useMemo } from 'react'
 import { usePlayback } from '@/context/PlaybackContext'
-import phaseBreakdownPhases from '@/data/phaseBreakdownPhases.json'
-
-type PhaseRow = {
-  secondStart?: number
-  phaseOfPlay?: Record<string, unknown>
-}
-
-type PhasesPayload = {
-  phases: PhaseRow[]
-}
-
-const phasesPayload = phaseBreakdownPhases as PhasesPayload
 
 // SRF time (seconds) where first-half kickoff appears in the broadcast.
 const VIDEO_KICKOFF_START_TIME = 2176
 const VIDEO_URN = 'urn:swisstxt:video:srf:1837719'
 
-function phaseStartSecond(phase: PhaseRow | undefined): number {
-  if (!phase) return 0
-  if (phase.phaseOfPlay && typeof phase.phaseOfPlay.second_start === 'number') {
-    return phase.phaseOfPlay.second_start
-  }
-  if (typeof phase.secondStart === 'number') {
-    return phase.secondStart
-  }
-  return 0
+/** Match clock seconds since kickoff — must stay in sync with `MomentumChart` `formatClockFromFrame`. */
+function matchClockSecondsFromFrameIndex(frameIndex: number) {
+  return frameIndex / 10
 }
 
 export function VideoPlayer() {
-  const { phaseIndex } = usePlayback()
-  const phases = phasesPayload.phases
-  const n = phases.length
-  const safePhase = n === 0 ? 0 : Math.min(Math.max(0, phaseIndex), n - 1)
-  const phase = phases[safePhase]
-  const second = phaseStartSecond(phase)
+  const { frameIndex } = usePlayback()
 
-  const startTime = VIDEO_KICKOFF_START_TIME + second
+  const startTime = useMemo(() => {
+    const matchSec = matchClockSecondsFromFrameIndex(frameIndex)
+    return Math.round(VIDEO_KICKOFF_START_TIME + matchSec)
+  }, [frameIndex])
 
   const src = useMemo(() => {
     const params = new URLSearchParams({
