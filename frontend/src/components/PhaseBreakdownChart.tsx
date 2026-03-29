@@ -650,18 +650,42 @@ export function PhaseBreakdownChart() {
                 tickCount={6}
               />
               <Tooltip
-                contentStyle={{
-                  background: "var(--popover)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 14,
-                  fontSize: 13,
-                  padding: "10px 14px",
-                  boxShadow:
-                    "0 8px 32px -12px rgba(0,0,0,0.18), 0 2px 8px -4px rgba(0,0,0,0.08)",
+                content={({ active, payload }) => {
+                  if (!active || payload == null || payload.length === 0) {
+                    return null
+                  }
+                  return (
+                    <div
+                      style={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 14,
+                        fontSize: 13,
+                        padding: "10px 14px",
+                        boxShadow:
+                          "0 8px 32px -12px rgba(0,0,0,0.18), 0 2px 8px -4px rgba(0,0,0,0.08)",
+                      }}
+                    >
+                      <ul className="m-0 list-none space-y-1.5 p-0">
+                        {payload.map((item) => (
+                          <li
+                            key={String(item.dataKey)}
+                            className="flex items-center gap-2"
+                          >
+                            <span
+                              className="size-2 shrink-0 rounded-full ring-1 ring-black/[0.08] dark:ring-white/15"
+                              style={{ backgroundColor: item.color }}
+                              aria-hidden
+                            />
+                            <span className="font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
+                              {item.name}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
                 }}
-                formatter={(value) =>
-                  typeof value === "number" ? [value.toFixed(3), ""] : ["", ""]
-                }
               />
               {INDICATOR_STYLES.map(({ id, label, color }) => (
                 <Area

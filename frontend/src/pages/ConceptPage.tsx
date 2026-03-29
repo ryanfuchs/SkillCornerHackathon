@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   Activity,
   ArrowRight,
+  Boxes,
   Layers,
   Link2,
   Radio,
@@ -227,7 +228,9 @@ export function ConceptPage() {
             <p className="max-w-[720px] text-[17px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
               Five complementary scores, each normalized from zero to one, come
               straight from SkillCorner style tracking. Together they power the
-              charts and radar inside MatchLab.
+              charts and radar inside MatchLab. The stack is modular on purpose,
+              so dropping in another indicator is mostly a new analyzer plus a
+              thin slice of wiring, not a rewrite.
             </p>
             <div className="mt-10">
               <IndicatorExplorer />
@@ -242,18 +245,9 @@ export function ConceptPage() {
             <div className="grid gap-5 sm:grid-cols-2">
               {[
                 {
-                  icon: Triangle,
-                  title: 'Tactical mapping',
-                  body: (
-                    <>
-                      Delaunay triangulation in{' '}
-                      <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">
-                        position_analysis.py
-                      </code>{' '}
-                      groups players into moving tactical lines that do not depend
-                      on a nominal formation label.
-                    </>
-                  ),
+                  icon: Boxes,
+                  title: 'Modular indicators',
+                  body: 'Each metric is a small Python analyzer with the same lifecycle: read a frame from the match bundle, emit a score in zero to one, then let the pipeline serialize it next to the others. MatchLab and the phase chart consume one JSON contract, so a new series is routine work instead of a one off integration.',
                 },
                 {
                   icon: Radio,
