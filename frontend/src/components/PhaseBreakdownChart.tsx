@@ -507,8 +507,8 @@ export function PhaseBreakdownChart() {
                     key={`area-${marker.key}`}
                     x1={Math.max(windowStart, marker.x - 0.5)}
                     x2={Math.min(windowEnd, marker.x + 0.5)}
-                    fill="hsl(var(--muted-foreground))"
-                    fillOpacity={0.08}
+                    fill="hsl(var(--primary))"
+                    fillOpacity={0.18}
                     ifOverflow="extendDomain"
                   />
                 ) : null
@@ -517,20 +517,15 @@ export function PhaseBreakdownChart() {
                 <ReferenceLine
                   key={marker.key}
                   x={marker.x}
-                  stroke={
-                    marker.kind === 'start'
-                      ? 'hsl(var(--foreground))'
-                      : 'hsl(var(--muted-foreground))'
-                  }
-                  strokeOpacity={marker.kind === 'start' ? 0.6 : 0.65}
-                  strokeWidth={marker.kind === 'start' ? 1.1 : 0.8}
-                  strokeDasharray={marker.kind === 'start' ? '2 3' : '1 4'}
+                  stroke="#ffffff"
+                  strokeOpacity={marker.kind === 'start' ? 0.45 : 0.22}
+                  strokeWidth={marker.kind === 'start' ? 1.4 : 0.8}
                 />
               ))}
               {safeFrameIndex != null && (
                 <ReferenceLine
                   x={safeFrameIndex}
-                  stroke="hsl(var(--foreground))"
+                  stroke="#ffffff"
                   strokeWidth={1.2}
                   strokeDasharray="4 3"
                 />
