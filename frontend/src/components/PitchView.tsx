@@ -1,10 +1,11 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Button } from "@/components/ui/button";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 /** FIFA max dimensions: 105m × 68m (length along X, width along Z). */
 const PITCH_LENGTH = 105;
@@ -67,15 +68,17 @@ export type PitchPlayer = {
 /** Wide-line width in world units (meters). */
 const OUTLINE_LINE_WIDTH = 0.16;
 
-/** Default (broadcast-style) camera. */
-const CAMERA_DEFAULT_POSITION: [number, number, number] = [0, 50, 120];
-const CAMERA_DEFAULT_FOV = 20;
+/** Default (broadcast-style) camera — pulled back / wider FOV so the full pitch fits with margin. */
+const CAMERA_DEFAULT_POSITION: [number, number, number] = [0, 54, 168];
+const CAMERA_DEFAULT_FOV = 24;
 
 /** Straight-down overhead: high +Y, look at pitch center; Z is screen-up to avoid gimbal lock. */
 const CAMERA_OVERHEAD_Y = 118;
+const CAMERA_OVERHEAD_FOV = 38;
 
-/** Higher = snappier camera blend between default and overhead (roughly ~1/e in 1/λ seconds). */
-const CAMERA_VIEW_SMOOTHING = 11;
+/** Orbit / zoom limits (world units from target). */
+const ORBIT_MIN_DISTANCE = 65;
+const ORBIT_MAX_DISTANCE = 420;
 
 type PitchThemeColors = {
   pitchSurface: string;
@@ -132,67 +135,61 @@ function usePitchThemeColors(): PitchThemeColors {
   return colors;
 }
 
-function applyOverheadToScratch(
-  sc: THREE.PerspectiveCamera,
+function applyPitchViewPreset(
+  cam: THREE.PerspectiveCamera,
+  controls: OrbitControls,
   overhead: boolean,
-  targetPos: THREE.Vector3,
-  targetQuat: THREE.Quaternion,
-  targetFov: { current: number },
 ) {
+  controls.target.set(0, 0, 0);
   if (overhead) {
-    sc.position.set(0, CAMERA_OVERHEAD_Y, 0);
-    sc.up.set(0, 0, -1);
-    sc.lookAt(0, 0, 0);
-    targetFov.current = 38;
+    cam.up.set(0, 0, -1);
+    cam.position.set(0, CAMERA_OVERHEAD_Y, 0);
+    cam.fov = CAMERA_OVERHEAD_FOV;
   } else {
-    sc.position.set(...CAMERA_DEFAULT_POSITION);
-    sc.up.set(0, 1, 0);
-    sc.lookAt(0, 0, 0);
-    targetFov.current = CAMERA_DEFAULT_FOV;
+    cam.up.set(0, 1, 0);
+    cam.position.set(...CAMERA_DEFAULT_POSITION);
+    cam.fov = CAMERA_DEFAULT_FOV;
   }
-  targetPos.copy(sc.position);
-  targetQuat.copy(sc.quaternion);
+  cam.lookAt(controls.target);
+  cam.updateProjectionMatrix();
+  controls.update();
 }
 
-function CameraRig({ overhead }: { overhead: boolean }) {
-  const { camera } = useThree();
-  const targetPos = useRef(new THREE.Vector3());
-  const targetQuat = useRef(new THREE.Quaternion());
-  const targetFov = useRef(CAMERA_DEFAULT_FOV);
-  const scratchCam = useMemo(() => new THREE.PerspectiveCamera(), []);
-  const didInitialSnap = useRef(false);
-  const localYWorld = useRef(new THREE.Vector3());
+/** Drag: orbit · wheel / pinch: zoom · right-drag / shift-drag: pan */
+function PitchOrbitControls({ overhead }: { overhead: boolean }) {
+  const { camera, gl } = useThree();
+  const controlsRef = useRef<OrbitControls | null>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
-    applyOverheadToScratch(
-      scratchCam,
-      overhead,
-      targetPos.current,
-      targetQuat.current,
-      targetFov,
-    );
-    if (!didInitialSnap.current) {
-      cam.position.copy(targetPos.current);
-      cam.quaternion.copy(targetQuat.current);
-      cam.up.copy(scratchCam.up);
-      cam.fov = targetFov.current;
-      cam.updateProjectionMatrix();
-      didInitialSnap.current = true;
-    }
-  }, [camera, overhead, scratchCam]);
+    const controls = new OrbitControls(cam, gl.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.minDistance = ORBIT_MIN_DISTANCE;
+    controls.maxDistance = ORBIT_MAX_DISTANCE;
+    controls.minPolarAngle = 0.08;
+    controls.maxPolarAngle = Math.PI - 0.08;
+    controls.minAzimuthAngle = -Infinity;
+    controls.maxAzimuthAngle = Infinity;
+    controls.screenSpacePanning = false;
+    controls.zoomSpeed = 0.85;
+    controls.rotateSpeed = 0.65;
+    controls.panSpeed = 0.65;
+    controlsRef.current = controls;
+    return () => {
+      controls.dispose();
+      controlsRef.current = null;
+    };
+  }, [camera, gl]);
 
-  useFrame((_, delta) => {
-    if (!didInitialSnap.current) return;
-    const cam = camera as THREE.PerspectiveCamera;
-    const dt = Math.min(delta, 0.08);
-    const t = 1 - Math.exp(-CAMERA_VIEW_SMOOTHING * dt);
-    cam.position.lerp(targetPos.current, t);
-    cam.quaternion.slerp(targetQuat.current, t);
-    cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov.current, t);
-    localYWorld.current.set(0, 1, 0).applyQuaternion(cam.quaternion);
-    cam.up.copy(localYWorld.current);
-    cam.updateProjectionMatrix();
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    applyPitchViewPreset(camera as THREE.PerspectiveCamera, controls, overhead);
+  }, [overhead, camera]);
+
+  useFrame(() => {
+    controlsRef.current?.update();
   });
 
   return null;
@@ -765,7 +762,10 @@ export function PitchView({
   const themeColors = usePitchThemeColors();
 
   return (
-    <div className="relative h-full min-h-0 w-full flex-1 rounded-xl overflow-hidden border border-border/60">
+    <div
+      className="relative h-full min-h-0 w-full flex-1 touch-none rounded-xl overflow-hidden border border-border/60"
+      title="Drag: orbit · Wheel: zoom · Right-drag or Shift+drag: pan"
+    >
       <Button
         type="button"
         variant="outline"
@@ -776,13 +776,17 @@ export function PitchView({
         {overhead ? "Default view" : "Overhead view"}
       </Button>
       <Canvas
+        className="touch-none"
         camera={{
           position: CAMERA_DEFAULT_POSITION,
           fov: CAMERA_DEFAULT_FOV,
         }}
         gl={{ antialias: true }}
+        onCreated={({ gl }) => {
+          gl.domElement.style.touchAction = "none";
+        }}
       >
-        <CameraRig overhead={overhead} />
+        <PitchOrbitControls overhead={overhead} />
         <color attach="background" args={[themeColors.sceneBackground]} />
         <ambientLight intensity={0.45} />
         <directionalLight position={[40, 60, 24]} intensity={1.1} />

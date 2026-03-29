@@ -454,37 +454,39 @@ export function PhaseBreakdownChart() {
               margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
               onMouseMove={handleChartMouseMove}
             >
-              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis
                 dataKey="frame"
                 type="number"
                 domain={["dataMin", "dataMax"]}
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                 label={{
                   value: "Bundle frame (rolling 150-frame window)",
                   position: "insideBottom",
                   offset: -2,
-                  style: { fill: "hsl(var(--muted-foreground))", fontSize: 10 },
+                  style: { fill: "var(--muted-foreground)", fontSize: 10 },
                 }}
               />
               <YAxis
                 domain={[0, 1]}
                 width={36}
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                 tickCount={6}
               />
               <Tooltip
                 contentStyle={{
-                  background: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 6,
+                  background: "var(--popover)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
                   fontSize: 12,
                 }}
                 formatter={(value) =>
                   typeof value === "number" ? [value.toFixed(3), ""] : ["", ""]
                 }
               />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend
+                wrapperStyle={{ fontSize: 11, color: "var(--muted-foreground)" }}
+              />
               {INDICATOR_STYLES.map(({ id, label, color }) => (
                 <Area
                   key={id}
@@ -507,7 +509,7 @@ export function PhaseBreakdownChart() {
                     key={`area-${marker.key}`}
                     x1={Math.max(windowStart, marker.x - 0.5)}
                     x2={Math.min(windowEnd, marker.x + 0.5)}
-                    fill="hsl(var(--primary))"
+                    fill="var(--primary)"
                     fillOpacity={0.18}
                     ifOverflow="extendDomain"
                   />
@@ -517,17 +519,18 @@ export function PhaseBreakdownChart() {
                 <ReferenceLine
                   key={marker.key}
                   x={marker.x}
-                  stroke="#ffffff"
-                  strokeOpacity={marker.kind === 'start' ? 0.45 : 0.22}
+                  stroke="var(--chart-ref-line-strong, #ffffff)"
+                  strokeOpacity={marker.kind === 'start' ? 0.85 : 0.55}
                   strokeWidth={marker.kind === 'start' ? 1.4 : 0.8}
                 />
               ))}
               {safeFrameIndex != null && (
                 <ReferenceLine
                   x={safeFrameIndex}
-                  stroke="#ffffff"
-                  strokeWidth={1.2}
+                  stroke="var(--primary)"
+                  strokeWidth={1.25}
                   strokeDasharray="4 3"
+                  strokeOpacity={0.9}
                 />
               )}
             </ComposedChart>

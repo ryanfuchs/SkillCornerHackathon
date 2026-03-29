@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { usePlayback } from '@/context/PlaybackContext'
+import { cn } from '@/lib/utils'
 import type { MomentumTimeline } from '@/hooks/useMatchTracking'
 
 // SRF embed time (seconds): first-half kickoff and second-half kickoff in the broadcast.
@@ -53,9 +54,10 @@ const VIDEO_URN = 'urn:swisstxt:video:srf:1837719'
 
 type Props = {
   timeline: MomentumTimeline | null
+  className?: string
 }
 
-export function VideoPlayer({ timeline }: Props) {
+export function VideoPlayer({ timeline, className }: Props) {
   const { frameIndex } = usePlayback()
 
   const startTime = useMemo(
@@ -74,10 +76,13 @@ export function VideoPlayer({ timeline }: Props) {
 
   return (
     <div
-      className="h-full min-h-[14rem] w-full overflow-hidden rounded-xl border border-border/70"
+      className={cn(
+        'h-full min-h-[14rem] w-full overflow-hidden rounded-xl border border-border/70',
+        className,
+      )}
       style={{
-        backgroundColor: "var(--video-well)",
-        boxShadow: "var(--shadow-soft)",
+        backgroundColor: 'var(--video-well)',
+        boxShadow: 'var(--shadow-soft)',
       }}
     >
       <iframe

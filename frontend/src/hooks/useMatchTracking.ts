@@ -78,6 +78,10 @@ export type MomentumTimeline = {
   duration2Min: number;
   formatClockForFrame: (frameIndex: number) => string;
   frameIndexAtChartT: (t01: number) => number;
+  /** Playback row index for a SkillCorner bundle `frame` id, if present in tracking. */
+  rowIndexForBundleFrame: (bundleFrame: number) => number | null;
+  /** Normalized position [0, 1] on the match spine for a bundle frame id. */
+  chartTForBundleFrame: (bundleFrame: number) => number | null;
 };
 
 function parseTimestampToMatchMinutes(ts: string | null | undefined): number | null {
@@ -174,6 +178,21 @@ function buildMomentumTimeline(frames: TrackingFrame[]): MomentumTimeline | null
     return best;
   };
 
+  const rowIndexByBundleFrame = new Map<number, number>();
+  for (let i = 0; i < n; i++) {
+    const fid = frames[i]!.frame;
+    if (!rowIndexByBundleFrame.has(fid)) rowIndexByBundleFrame.set(fid, i);
+  }
+
+  const rowIndexForBundleFrame = (bundleFrame: number) =>
+    rowIndexByBundleFrame.get(bundleFrame) ?? null;
+
+  const chartTForBundleFrame = (bundleFrame: number) => {
+    const idx = rowIndexForBundleFrame(bundleFrame);
+    if (idx == null) return null;
+    return chartT[idx]!;
+  };
+
   return {
     chartT,
     matchMinutes,
@@ -186,6 +205,8 @@ function buildMomentumTimeline(frames: TrackingFrame[]): MomentumTimeline | null
     duration2Min,
     formatClockForFrame,
     frameIndexAtChartT,
+    rowIndexForBundleFrame,
+    chartTForBundleFrame,
   };
 }
 
