@@ -28,10 +28,10 @@ SHOT_EXCLUDE_IF_NEAR_GOAL = 75
 # When score updates on a pass/carry, attach to nearest shot within this window (10 Hz ≈ 90 s).
 SCORE_GOAL_MAX_SHOT_DISTANCE = 950
 
-# Bundle frame → which side scores (Switzerland = home in UI). CSV attributes this shot to
-# Switzerland but a 3–4 result requires the 6th goal to count for Germany.
+# Bundle frame → which side scores (Switzerland = home in UI). CSV rows can disagree with TV.
 SCORING_SIDE_OVERRIDES: dict[int, str] = {
-    58294: "Germany",
+    # Wirtz (GER) makes it 2–3; feed tied this instant to a CH-tagged shot row.
+    50997: "Germany",
 }
 
 # Last bundle frame in tracking bundle (score from official result after full time).
@@ -120,6 +120,44 @@ def build_score_breakpoints(
     return out
 
 
+# Breakpoint / CSV goal frame → bundle frame used on the timeline (tracking clock ≈ TV).
+# Example: 50997 sits at ~67' on the strip; 47634 matches ~61' (Wirtz goal).
+GOAL_TIMELINE_FRAME: dict[int, int] = {
+    50997: 47634,
+}
+_TIMELINE_GOAL_FRAMES = set(GOAL_TIMELINE_FRAME.values())
+
+
+def _canonical_goal_frame(timeline_frame: int) -> int:
+    for canon, tl in GOAL_TIMELINE_FRAME.items():
+        if tl == timeline_frame:
+            return canon
+    return timeline_frame
+
+
+# Broadcast scoreboard: SkillCorner timestamps / shot attribution ≠ TV minute or scorer text.
+# Keys are canonical (breakpoint) frames, not GOAL_TIMELINE_FRAME remapped values.
+GOAL_DISPLAY: dict[int, dict[str, str]] = {
+    9778: {"label": "Goal · D. Ndoye (Switzerland)", "minuteLabel": "17'"},
+    15275: {"label": "Goal · J. Tah (Germany)", "minuteLabel": "26'"},
+    24721: {"label": "Goal · G. Xhaka (Switzerland)", "minuteLabel": "41'"},
+    27614: {"label": "Goal · S. Gnabry (Germany)", "minuteLabel": "45+1'"},
+    50997: {"label": "Goal · F. Wirtz (Germany)", "minuteLabel": "61'"},
+    58294: {"label": "Goal · Joel Monteiro (Switzerland)", "minuteLabel": "79'"},
+    62175: {"label": "Goal · F. Wirtz (Germany)", "minuteLabel": "85'"},
+}
+
+
+def _apply_goal_display(moments: list[dict[str, object]]) -> None:
+    for m in moments:
+        if m.get("kind") != "goal":
+            continue
+        ov = GOAL_DISPLAY.get(_canonical_goal_frame(int(m["frame"])))
+        if ov:
+            m["label"] = ov["label"]
+            m["minuteLabel"] = ov["minuteLabel"]
+
+
 def main() -> None:
     if not CSV_PATH.is_file():
         raise SystemExit(f"Dynamic events CSV not found: {CSV_PATH}")
@@ -182,15 +220,18 @@ def main() -> None:
 
     moments: list[dict[str, str | int]] = []
     for fs in goal_frames_ordered:
+        timeline_fs = GOAL_TIMELINE_FRAME.get(fs, fs)
         row = shot_by_frame.get(fs)
         label = goal_label_from_row(row) if row else "Goal"
-        moments.append({"frame": fs, "label": label, "kind": "goal"})
+        moments.append({"frame": timeline_fs, "label": label, "kind": "goal"})
 
     def near_goal(frame: int) -> bool:
         return any(abs(frame - g) <= SHOT_EXCLUDE_IF_NEAR_GOAL for g in goal_frames)
 
     for fs in shot_frames_sorted:
         if fs in goal_frames:
+            continue
+        if fs in _TIMELINE_GOAL_FRAMES:
             continue
         if near_goal(fs):
             continue
@@ -203,6 +244,7 @@ def main() -> None:
         )
 
     moments.sort(key=lambda m: m["frame"])
+    _apply_goal_display(moments)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(
@@ -211,9 +253,9 @@ def main() -> None:
                 "matchId": 2060235,
                 "source": "2060235_dynamic_events.csv",
                 "notes": (
-                    "Goals: lead_to_goal shots, score-change-linked shots, plus "
-                    f"supplemental frames {supplemental_goal_frames} for broadcast-time goals "
-                    "under-tagged in CSV; shots are remaining possession shots."
+                    "Goals: derived from CSV + supplemental frames; "
+                    "GOAL_DISPLAY in pipeline/extract_timeline_moments.py fixes TV minute "
+                    "labels and scorers. Shots: remaining possession shots."
                 ),
                 "moments": moments,
             },

@@ -14,6 +14,13 @@ import { GER_MATCH_COLOR, SUI_MATCH_COLOR } from '@/lib/matchTeamColors'
 import { cn } from '@/lib/utils'
 import timelineKeyMoments from '@/data/timelineKeyMoments.json'
 
+type TimelineMoment = {
+  frame: number
+  label: string
+  kind: string
+  minuteLabel?: string
+}
+
 const matchData = {
   homeTeam: 'SUI',
   awayTeam: 'GER',
@@ -156,7 +163,8 @@ export function MatchDashboardPage() {
     const home: Array<{ minute: string; player: string }> = []
     const away: Array<{ minute: string; player: string }> = []
     if (!momentumTimeline) return { home, away }
-    for (const m of timelineKeyMoments.moments) {
+    const moments = timelineKeyMoments.moments as TimelineMoment[]
+    for (const m of moments) {
       if (m.kind !== 'goal' || m.frame > frame) continue
       const idx = momentumTimeline.rowIndexForBundleFrame(m.frame)
       const clock =
@@ -164,7 +172,8 @@ export function MatchDashboardPage() {
       const raw = m.label.replace(/^Goal · /, '')
       const side = goalSideFromLabel(raw)
       if (side == null) continue
-      const minute = broadcastClockToMinuteMark(clock)
+      const minute =
+        m.minuteLabel ?? broadcastClockToMinuteMark(clock)
       const player = playerNameFromGoalLabel(raw)
       const row = { minute, player }
       if (side === 'home') home.push(row)
