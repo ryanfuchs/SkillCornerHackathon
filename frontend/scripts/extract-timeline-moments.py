@@ -16,10 +16,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT / "src/data/2060235_dynamic_events.csv"
 OUT_PATH = ROOT / "src/data/timelineKeyMoments.json"
+SCORE_BREAKPOINTS_PATH = ROOT / "src/data/scoreBreakpoints.json"
 
 SHOT_EXCLUDE_IF_NEAR_GOAL = 75
 # When score updates on a pass/carry, attach to nearest shot within this window (10 Hz ≈ 90 s).
 SCORE_GOAL_MAX_SHOT_DISTANCE = 950
+
+# Bundle frame → which side scores (Switzerland = home in UI). CSV attributes this shot to
+# Switzerland but a 3–4 result requires the 6th goal to count for Germany.
+SCORING_SIDE_OVERRIDES: dict[int, str] = {
+    58294: "Germany",
+}
+
+# Last bundle frame in tracking bundle (score from official result after full time).
+FINAL_SCORE_FRAME = 67372
+FINAL_HOME = 3
+FINAL_AWAY = 4
 
 
 def is_true(val: str | None) -> bool:
@@ -68,6 +80,38 @@ def shot_label(row: dict[str, str]) -> str:
     if p:
         return f"Shot · {p}" + (f" ({t})" if t else "")
     return "Shot"
+
+
+def scoring_team_shortname(
+    goal_frame: int,
+    shot_by_frame: dict[int, dict[str, str]],
+) -> str:
+    if goal_frame in SCORING_SIDE_OVERRIDES:
+        return SCORING_SIDE_OVERRIDES[goal_frame]
+    row = shot_by_frame.get(goal_frame)
+    if not row:
+        return "Switzerland"
+    return (row.get("team_shortname") or "").strip() or "Switzerland"
+
+
+def build_score_breakpoints(
+    goal_frames_ordered: list[int],
+    shot_by_frame: dict[int, dict[str, str]],
+) -> list[dict[str, int]]:
+    home = away = 0
+    out: list[dict[str, int]] = [{"frame": 0, "home": 0, "away": 0}]
+    for fs in goal_frames_ordered:
+        side = scoring_team_shortname(fs, shot_by_frame)
+        if side == "Germany":
+            away += 1
+        else:
+            home += 1
+        out.append({"frame": fs, "home": home, "away": away})
+    if not out or out[-1]["frame"] != FINAL_SCORE_FRAME:
+        out.append(
+            {"frame": FINAL_SCORE_FRAME, "home": FINAL_HOME, "away": FINAL_AWAY},
+        )
+    return out
 
 
 def main() -> None:
@@ -172,6 +216,17 @@ def main() -> None:
     n_shot = sum(1 for m in moments if m["kind"] == "shot")
     print(f"Wrote {len(moments)} moments ({n_goal} goals, {n_shot} shots) to {OUT_PATH}")
     print("Goal frames:", goal_frames_ordered)
+
+    breakpoints = build_score_breakpoints(goal_frames_ordered, shot_by_frame)
+    SCORE_BREAKPOINTS_PATH.write_text(
+        json.dumps(
+            {"matchId": 2060235, "breakpoints": breakpoints},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote {len(breakpoints)} score breakpoints to {SCORE_BREAKPOINTS_PATH}")
 
 
 if __name__ == "__main__":

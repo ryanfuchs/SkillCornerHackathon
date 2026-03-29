@@ -3,6 +3,10 @@ import type { PitchPlayer } from "@/components/PitchView";
 import { usePlayback } from "@/context/PlaybackContext";
 
 import trackingUrl from "@/data/2060235_tracking_extrapolated.jsonl?url";
+import {
+  GER_MATCH_COLOR as AWAY_COLOR,
+  SUI_MATCH_COLOR as HOME_COLOR,
+} from "@/lib/matchTeamColors";
 
 /** One JSONL row from SkillCorner-style tracking (10 Hz: one row per 0.1 s). */
 export type TrackingFrame = {
@@ -27,9 +31,6 @@ export type TrackingFrame = {
 function trackingToPitch(jx: number, jy: number): { x: number; y: number } {
   return { x: jy, y: jx };
 }
-
-const HOME_COLOR = "#2563eb";
-const AWAY_COLOR = "#dc2626";
 
 function frameToPitchPlayers(frame: TrackingFrame): PitchPlayer[] {
   const { player_data } = frame;

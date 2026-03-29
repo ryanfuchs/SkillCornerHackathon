@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { FrameIndicatorSpider } from '@/components/FrameIndicatorSpider'
 import { MatchTimeline } from '@/components/MatchTimeline'
 import { PhaseBreakdownChart } from '@/components/PhaseBreakdownChart'
 import { PitchView } from '@/components/PitchView'
@@ -23,10 +25,13 @@ const FLAG_DE_URL =
 const shell =
   'rounded-[1.35rem] border border-black/[0.06] bg-white/72 shadow-[0_2px_28px_-14px_rgba(0,0,0,0.14)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-white/[0.06] dark:shadow-[0_2px_40px_-12px_rgba(0,0,0,0.65)]'
 
+type RightAsidePanel = 'broadcast' | 'analytics'
+
 export function MatchDashboardPage() {
   const { players, ball, loadError, loaded, momentumTimeline, frame } =
     useMatchTracking()
   const { home: homeScore, away: awayScore } = scoreAtBundleFrame(frame)
+  const [openAside, setOpenAside] = useState<RightAsidePanel>('analytics')
 
   return (
     <SiteLayout dashboard>
@@ -119,17 +124,46 @@ export function MatchDashboardPage() {
             </div>
           </DashboardWidget>
 
-          <DashboardWidget
-            title="Broadcast"
-            subtitle="SRF player · clock-locked"
-            className="lg:min-h-0 lg:h-full"
-            contentClassName="flex min-h-[240px] flex-1 flex-col p-0"
-          >
-            <VideoPlayer
-              timeline={momentumTimeline}
-              className="min-h-[16rem] flex-1 rounded-2xl border border-black/[0.06] dark:border-white/[0.08]"
-            />
-          </DashboardWidget>
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+            <DashboardWidget
+              title="Broadcast"
+              subtitle="Load on demand · sync to timeline"
+              className={cn(
+                'lg:min-h-0',
+                openAside === 'broadcast' ? 'lg:flex-1' : 'shrink-0',
+              )}
+              contentClassName="flex min-h-[240px] flex-1 flex-col p-0"
+              collapsible
+              open={openAside === 'broadcast'}
+              onOpenChange={(next) => {
+                if (next) setOpenAside('broadcast')
+                else setOpenAside('analytics')
+              }}
+            >
+              <VideoPlayer
+                timeline={momentumTimeline}
+                className="min-h-[16rem] flex-1 rounded-2xl border border-black/[0.06] dark:border-white/[0.08]"
+              />
+            </DashboardWidget>
+
+            <DashboardWidget
+              title="Frame indicators"
+              subtitle="Five analytics · smoothed vs playback"
+              className={cn(
+                'lg:min-h-0',
+                openAside === 'analytics' ? 'lg:flex-1' : 'shrink-0',
+              )}
+              contentClassName="flex min-h-[220px] flex-1 flex-col p-0 sm:min-h-[240px]"
+              collapsible
+              open={openAside === 'analytics'}
+              onOpenChange={(next) => {
+                if (next) setOpenAside('analytics')
+                else setOpenAside('broadcast')
+              }}
+            >
+              <FrameIndicatorSpider className="flex-1 px-2 pb-2 pt-0 sm:px-3" />
+            </DashboardWidget>
+          </div>
         </div>
 
         <DashboardWidget
