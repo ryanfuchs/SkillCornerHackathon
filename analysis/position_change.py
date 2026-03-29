@@ -17,6 +17,9 @@ from position_analysis import inferred_positions_for_frame
 
 # Upper bound on total grid movement: 22 players × max Euclidean step 4√2 ≈ 124.45.
 POSITION_CHANGE_MAX_TOTAL = 124.5
+# Score = (total_change / MAX) ** EXPONENT with EXPONENT in (0, 1): smaller movements
+# contribute disproportionately more to the score than a linear mapping.
+POSITION_CHANGE_SCORE_EXPONENT = 0.5
 
 
 def _sum_position_changes(
@@ -47,7 +50,11 @@ def _sum_position_changes(
 
 
 class PositionChangeFrame(IndicatorFrameBase[PositionChangeKind]):
-    """``total_change`` is the sum of Euclidean grid steps for players seen in both adjacent frames."""
+    """``total_change`` is the sum of Euclidean grid steps for players seen in both adjacent frames.
+
+    ``score`` is ``min(1, (total_change / max_total) ** exponent)`` so modest movement lifts the score
+    more than a linear ratio would.
+    """
 
     total_change: float = Field(ge=0)
 
@@ -83,7 +90,8 @@ class PositionChangeAnalyzer(IndicatorAnalyzer[PositionChangeKind]):
                 curr,
                 tactical_grid_cache=self._tactical_grid_cache,
             )
-        score = total_change / POSITION_CHANGE_MAX_TOTAL
+        ratio = total_change / POSITION_CHANGE_MAX_TOTAL
+        score = min(1.0, ratio**POSITION_CHANGE_SCORE_EXPONENT)
         return PositionChangeFrame(
             frame_index=curr.frame,
             score=score,
