@@ -35,13 +35,13 @@ const AXES: {
   subject: string
   color: string
 }[] = [
-  { key: 'player_clusters', subject: 'Clusters', color: '#a855f7' },
-  { key: 'position_change', subject: 'Pos. change', color: '#22c55e' },
+  { key: 'player_clusters', subject: 'Player\nclusters', color: '#a855f7' },
+  { key: 'position_change', subject: 'Position\nchange', color: '#22c55e' },
   { key: 'ball_chaos', subject: 'Ball chaos', color: '#f97316' },
-  { key: 'defensive_line', subject: 'Back line', color: '#38bdf8' },
+  { key: 'defensive_line', subject: 'Defensive\nline', color: '#38bdf8' },
   {
     key: 'line_to_line_acceleration',
-    subject: 'L2L accel.',
+    subject: 'Line-to-line\naccel.',
     color: '#e11d48',
   },
 ]
@@ -52,8 +52,8 @@ const CX = 50
 const CY = 52
 /** Radius (viewBox units) where value === 1. */
 const R_MAX = 34
-/** Label radius outside the outer ring. */
-const R_LABEL = R_MAX * 1.14
+/** Label radius outside the outer ring (room for full indicator titles). */
+const R_LABEL = R_MAX * 1.2
 
 function analyticsRowCount(): number {
   return Math.min(
@@ -143,6 +143,8 @@ const SpiderRadarChrome = memo(function SpiderRadarChrome() {
         const y = CY + R_LABEL * Math.sin(a)
         const anchor =
           Math.abs(Math.cos(a)) < 0.35 ? 'middle' : Math.cos(a) > 0 ? 'start' : 'end'
+        const lines = axis.subject.split('\n')
+        const leadDy = lines.length > 1 ? -((lines.length - 1) / 2) * 1.05 : 0
         return (
           <text
             key={axis.key}
@@ -150,10 +152,14 @@ const SpiderRadarChrome = memo(function SpiderRadarChrome() {
             y={y}
             textAnchor={anchor}
             dominantBaseline="middle"
-            className="fill-[#86868b] text-[3.1px] font-medium dark:fill-[#98989d]"
-            style={{ fontSize: '3.1px' }}
+            className="fill-[#6e6e73] dark:fill-[#a1a1a6]"
+            style={{ fontSize: '2.65px', fontWeight: 500, letterSpacing: '-0.02em' }}
           >
-            {axis.subject}
+            {lines.map((line, li) => (
+              <tspan key={li} x={x} dy={li === 0 ? `${leadDy}em` : '1.05em'}>
+                {line}
+              </tspan>
+            ))}
           </text>
         )
       })}
@@ -275,12 +281,15 @@ function FrameIndicatorSpiderBody({
 
   return (
     <div className={cn('h-full min-h-[14rem] w-full', className)}>
-      <p className="px-1 pb-2 text-[11px] text-[#86868b] tabular-nums dark:text-[#98989d]">
+      <p className="px-1 pb-2 text-[12px] font-medium tracking-[-0.01em] text-[#86868b] tabular-nums dark:text-[#98989d]">
         Frame{' '}
         {playbackFrameCount > 0
           ? `${Math.min(frameIndex, rowCap - 1)} / ${rowCap - 1}`
-          : `— / ${rowCap - 1}`}{' '}
-        · indicators 0–1 (smoothed)
+          : `— / ${rowCap - 1}`}
+        <span className="mx-1.5 font-normal text-[#aeaeb2] dark:text-[#7c7c80]">
+          ·
+        </span>
+        Normalized scores 0–1, smoothed
       </p>
       <div className="h-[min(18rem,calc(100%-2rem))] min-h-[12rem] w-full">
         <svg

@@ -55,7 +55,11 @@ export function IndicatorExplorer() {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Chaos indicators">
+      <div
+        className="flex w-full flex-col gap-2 rounded-2xl bg-black/[0.035] p-1.5 dark:bg-white/[0.06] sm:inline-flex sm:w-auto sm:flex-row sm:flex-wrap"
+        role="tablist"
+        aria-label="Chaos indicators"
+      >
         {INDICATORS.map((ind, i) => (
           <button
             key={ind.id}
@@ -65,14 +69,14 @@ export function IndicatorExplorer() {
             aria-controls={`indicator-panel-${ind.id}`}
             id={`indicator-tab-${ind.id}`}
             className={cn(
-              'rounded-full border px-4 py-2.5 text-left text-[13px] font-semibold transition-all duration-200 sm:px-5',
+              'rounded-xl px-4 py-2.5 text-left text-[13px] font-medium tracking-[-0.015em] transition-[color,background-color,box-shadow] duration-200 motion-reduce:transition-none sm:px-4',
               i === active
-                ? 'border-black/[0.12] bg-[#1d1d1f] text-[#f5f5f7] shadow-md dark:border-white/15 dark:bg-white/95 dark:text-[#1d1d1f]'
-                : 'border-black/[0.06] bg-white/60 text-[#424245] hover:bg-white/90 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-[#d2d2d7] dark:hover:bg-white/10',
+                ? 'bg-white text-[#1d1d1f] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.12),0_1px_2px_-1px_rgba(0,0,0,0.06)] dark:bg-[#3a3a3c] dark:text-[#f5f5f7] dark:shadow-[0_2px_14px_-4px_rgba(0,0,0,0.55)]'
+                : 'text-[#6e6e73] hover:bg-white/70 hover:text-[#1d1d1f] dark:text-[#a1a1a6] dark:hover:bg-white/[0.12] dark:hover:text-[#f5f5f7]',
             )}
             onClick={() => setActive(i)}
           >
-            <span className="mr-2 opacity-70">{ind.letter}.</span>
+            <span className="sr-only">{ind.letter}. </span>
             {ind.title}
           </button>
         ))}
@@ -82,28 +86,28 @@ export function IndicatorExplorer() {
         role="tabpanel"
         id={`indicator-panel-${cur.id}`}
         aria-labelledby={`indicator-tab-${cur.id}`}
-        className="rounded-[1.35rem] border border-black/[0.06] bg-white/70 p-6 shadow-[0_4px_32px_-16px_rgba(0,0,0,0.15)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-white/[0.06] sm:p-8"
+        className="rounded-[1.35rem] border border-black/[0.06] bg-white/75 p-6 shadow-[0_4px_28px_-14px_rgba(0,0,0,0.12)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-white/[0.06] sm:p-8"
       >
         <div
-          className="mb-6 h-3 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.1]"
+          className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.1]"
           aria-hidden
         >
           <div
-            className="h-full rounded-full motion-safe:transition-all motion-safe:duration-700 ease-out"
+            className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out"
             style={{
               width: `${demoLevel * 100}%`,
-              background: `linear-gradient(90deg, ${cur.accent}88, ${cur.accent})`,
+              background: `linear-gradient(90deg, ${cur.accent}99, ${cur.accent})`,
             }}
           />
         </div>
-        <h3 className="text-[22px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7]">
+        <h3 className="text-[24px] font-semibold leading-tight tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7]">
           {cur.title}
         </h3>
-        <p className="mt-3 text-[17px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
+        <p className="mt-3 text-[17px] leading-[1.5] text-[#6e6e73] dark:text-[#a1a1a6]">
           {cur.summary}
         </p>
-        <p className="mt-4 text-[13px] font-medium tabular-nums text-[#86868b] dark:text-[#98989d]">
-          Illustrative intensity bar · all metrics exported in [0, 1] per frame
+        <p className="mt-5 text-[12px] font-medium tracking-wide text-[#86868b] dark:text-[#98989d]">
+          Illustrative intensity · each metric is stored in [0, 1] per frame
         </p>
       </div>
     </div>

@@ -9,7 +9,6 @@ import {
   Area,
   CartesianGrid,
   ComposedChart,
-  Legend,
   ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
@@ -21,6 +20,7 @@ import type { MouseHandlerDataParam } from 'recharts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePlayback } from '@/context/PlaybackContext'
+import { cn } from '@/lib/utils'
 import phaseBreakdownPhases from '@/data/phaseBreakdownPhases.json'
 import phaseBreakdownFrames from '@/data/phaseBreakdownFrames.json'
 
@@ -131,6 +131,34 @@ const INDICATOR_STYLES: { id: string; label: string; color: string }[] = [
   { id: 'defensive_line', label: 'Defensive line', color: '#38bdf8' },
   { id: 'line_to_line_acceleration', label: 'Line-to-line accel.', color: '#e11d48' },
 ]
+
+function PhaseIndicatorLegendStrip({ className }: { className?: string }) {
+  return (
+    <ul
+      className={cn(
+        'm-0 flex list-none flex-wrap gap-2 p-0',
+        className,
+      )}
+      aria-label="Indicators (0–1 scale)"
+    >
+      {INDICATOR_STYLES.map(({ id, label, color }) => (
+        <li
+          key={id}
+          className="inline-flex max-w-full items-center gap-2 rounded-full border border-black/[0.06] bg-white/90 px-3 py-1.5 shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)] backdrop-blur-sm dark:border-white/[0.08] dark:bg-white/[0.07]"
+        >
+          <span
+            className="size-2 shrink-0 rounded-full ring-1 ring-black/[0.08] dark:ring-white/15"
+            style={{ backgroundColor: color }}
+            aria-hidden
+          />
+          <span className="text-[13px] font-medium leading-none tracking-[-0.015em] text-[#1d1d1f] dark:text-[#f5f5f7]">
+            {label}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 const MOVING_WINDOW_FRAMES = 150
 
@@ -549,6 +577,8 @@ export function PhaseBreakdownChart() {
           No series data
         </div>
       ) : (
+        <>
+        <PhaseIndicatorLegendStrip className="mb-3" />
         <div
           className="h-72 w-full min-h-72 min-w-0 sm:h-80 sm:min-h-80"
           onMouseEnter={handleChartAreaEnter}
@@ -593,12 +623,6 @@ export function PhaseBreakdownChart() {
                 type="number"
                 domain={["dataMin", "dataMax"]}
                 tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                label={{
-                  value: "Bundle frame (rolling 150-frame window)",
-                  position: "insideBottom",
-                  offset: -2,
-                  style: { fill: "var(--muted-foreground)", fontSize: 10 },
-                }}
               />
               <YAxis
                 domain={[0, 1]}
@@ -610,15 +634,15 @@ export function PhaseBreakdownChart() {
                 contentStyle={{
                   background: "var(--popover)",
                   border: "1px solid var(--border)",
-                  borderRadius: 10,
-                  fontSize: 12,
+                  borderRadius: 14,
+                  fontSize: 13,
+                  padding: "10px 14px",
+                  boxShadow:
+                    "0 8px 32px -12px rgba(0,0,0,0.18), 0 2px 8px -4px rgba(0,0,0,0.08)",
                 }}
                 formatter={(value) =>
                   typeof value === "number" ? [value.toFixed(3), ""] : ["", ""]
                 }
-              />
-              <Legend
-                wrapperStyle={{ fontSize: 11, color: "var(--muted-foreground)" }}
               />
               {INDICATOR_STYLES.map(({ id, label, color }) => (
                 <Area
@@ -669,6 +693,7 @@ export function PhaseBreakdownChart() {
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+        </>
       )}
     </div>
   );
