@@ -1,11 +1,53 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Canvas,
+  useFrame,
+  useThree,
+  type ThreeEvent,
+} from "@react-three/fiber";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import * as THREE from "three";
 import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+import playerInfoJson from "@/data/playerInfoById.json";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+
+/** Stops R3F raycasts so events reach player discs (otherwise the pitch plane wins first). */
+const noopRaycast: NonNullable<THREE.Object3D["raycast"]> = () => {};
+
+type PlayerInfoRecord = {
+  id: number;
+  name: { full_name: string; short_name: string };
+  position: {
+    position_group: string;
+    role_name: string;
+    role_acronym: string;
+  };
+  team: { short_name: string; acronym: string; side: string };
+  match: { number: number };
+  physical?: {
+    distance?: number;
+    minutes?: number;
+    m_per_min?: number;
+  };
+};
+
+const PLAYERS_BY_ID = playerInfoJson.playersById as Record<
+  string,
+  PlayerInfoRecord
+>;
 
 /** FIFA max dimensions: 105m × 68m (length along X, width along Z). */
 const PITCH_LENGTH = 105;
@@ -50,9 +92,50 @@ const BALL_RADIUS = 0.41;
 
 /** Player discs sit slightly above line markings to avoid z-fighting. */
 const PLAYER_LIFT = LINE_LIFT + 0.06;
-const DEFAULT_PLAYER_RADIUS = 0.65;
+const DEFAULT_PLAYER_RADIUS = 0.78;
+/** Applied to marker radius when jersey numbers are shown (larger hit + label). */
+const PLAYER_MARKER_NUMBER_SCALE = 1.52;
+/** Number plane width/height in world units = radius × this (fills most of the disc). */
+const PLAYER_NUMBER_PLANE_SCALE = 2.45;
+/** Soft halo radius multiplier (additive, behind the solid disc). */
+const PLAYER_GLOW_SCALE = 1.42;
+const PLAYER_GLOW_OPACITY = 0.38;
+/** Black outline thickness (m) around the focused player disc. */
+const FOCUS_PLAYER_RING_WIDTH = 0.11;
+/** Focused player disc (tooltip hover/pin) uses this instead of team color. */
+/** Highlight when hovered or selected from the bar (visible on green pitch). */
+const FOCUS_PLAYER_COLOR = "#008000";
 /** Position smoothing (higher = snappier). */
 const PLAYER_POSITION_SMOOTHING = 14;
+
+function createPlayerNumberTexture(digits: string): THREE.CanvasTexture {
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, size, size);
+  const fs =
+    digits.length >= 2 ? Math.round(size * 0.62) : Math.round(size * 0.78);
+  ctx.font = `800 ${fs}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const cx = size / 2;
+  const cy = size / 2 + size * 0.015;
+  ctx.lineJoin = "round";
+  ctx.lineWidth = Math.max(12, Math.round(fs * 0.16));
+  ctx.strokeStyle = "rgba(0,0,0,0.62)";
+  ctx.strokeText(digits, cx, cy);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(digits, cx, cy);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = true;
+  return tex;
+}
 
 export type PitchPlayer = {
   id: string;
@@ -121,14 +204,20 @@ function usePitchThemeColors(): PitchThemeColors {
         "--pitch-surface",
         PITCH_THEME_FALLBACK.pitchSurface,
       ),
-      pitchLine: readCssColorVariable("--pitch-line", PITCH_THEME_FALLBACK.pitchLine),
+      pitchLine: readCssColorVariable(
+        "--pitch-line",
+        PITCH_THEME_FALLBACK.pitchLine,
+      ),
       sceneBackground: readCssColorVariable(
         "--pitch-scene-background",
         PITCH_THEME_FALLBACK.sceneBackground,
       ),
       primary: readCssColorVariable("--primary", PITCH_THEME_FALLBACK.primary),
       accent: readCssColorVariable("--accent", PITCH_THEME_FALLBACK.accent),
-      foreground: readCssColorVariable("--foreground", PITCH_THEME_FALLBACK.foreground),
+      foreground: readCssColorVariable(
+        "--foreground",
+        PITCH_THEME_FALLBACK.foreground,
+      ),
     });
   }, []);
 
@@ -344,9 +433,13 @@ function penaltyArcPositiveYPoints(): THREE.Vector3[] {
 /** Plane + markings + spots share one parent `group` so local XY matches `planeGeometry` (Z = normal). */
 function PitchPlane({ surfaceColor }: { surfaceColor: string }) {
   return (
-    <mesh>
+    <mesh raycast={noopRaycast}>
       <planeGeometry args={[PITCH_WIDTH, PITCH_LENGTH]} />
-      <meshStandardMaterial color={surfaceColor} roughness={0.85} metalness={0.05} />
+      <meshStandardMaterial
+        color={surfaceColor}
+        roughness={0.85}
+        metalness={0.05}
+      />
     </mesh>
   );
 }
@@ -354,7 +447,7 @@ function PitchPlane({ surfaceColor }: { surfaceColor: string }) {
 /** Filled center mark (dot); slightly above line z to avoid z-fighting. */
 function CenterSpot({ lineColor }: { lineColor: string }) {
   return (
-    <mesh position={[0, 0, LINE_LIFT + 0.008]}>
+    <mesh position={[0, 0, LINE_LIFT + 0.008]} raycast={noopRaycast}>
       <circleGeometry args={[CENTER_SPOT_RADIUS, 32]} />
       <meshBasicMaterial
         color={lineColor}
@@ -374,7 +467,7 @@ function PenaltySpots({ lineColor }: { lineColor: string }) {
   const yPos = HL - PENALTY_MARK_FROM_GOAL_LINE;
   return (
     <>
-      <mesh position={[0, yNeg, z]}>
+      <mesh position={[0, yNeg, z]} raycast={noopRaycast}>
         <circleGeometry args={[CENTER_SPOT_RADIUS, 32]} />
         <meshBasicMaterial
           color={lineColor}
@@ -384,7 +477,7 @@ function PenaltySpots({ lineColor }: { lineColor: string }) {
           polygonOffsetUnits={-1}
         />
       </mesh>
-      <mesh position={[0, yPos, z]}>
+      <mesh position={[0, yPos, z]} raycast={noopRaycast}>
         <circleGeometry args={[CENTER_SPOT_RADIUS, 32]} />
         <meshBasicMaterial
           color={lineColor}
@@ -511,6 +604,7 @@ function FootballBall({
         position={[0, 0, LINE_LIFT + 0.004]}
         rotation={[0, 0, 0]}
         renderOrder={9}
+        raycast={noopRaycast}
       >
         <circleGeometry args={[BALL_SHADOW_RADIUS, 40]} />
         <meshBasicMaterial
@@ -527,6 +621,7 @@ function FootballBall({
         ref={meshRef}
         position={[0, 0, z + BALL_RADIUS + LINE_LIFT + 0.02]}
         renderOrder={10}
+        raycast={noopRaycast}
       >
         <sphereGeometry args={[BALL_RADIUS, 48, 32]} />
         <meshStandardMaterial
@@ -545,7 +640,13 @@ function FootballBall({
  * One goal: two posts + crossbar in pitch local space (Z up from turf).
  * `yLine` is the goal line (±HL).
  */
-function GoalFrame3D({ yLine, lineColor }: { yLine: number; lineColor: string }) {
+function GoalFrame3D({
+  yLine,
+  lineColor,
+}: {
+  yLine: number;
+  lineColor: string;
+}) {
   const goalFrameMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
@@ -569,16 +670,22 @@ function GoalFrame3D({ yLine, lineColor }: { yLine: number; lineColor: string })
       <mesh
         position={[-GOAL_POST_CENTER_X, yLine, zPost]}
         material={goalFrameMaterial}
+        raycast={noopRaycast}
       >
         <boxGeometry args={[GOAL_POST_THICK, GOAL_POST_THICK, GOAL_HEIGHT]} />
       </mesh>
       <mesh
         position={[GOAL_POST_CENTER_X, yLine, zPost]}
         material={goalFrameMaterial}
+        raycast={noopRaycast}
       >
         <boxGeometry args={[GOAL_POST_THICK, GOAL_POST_THICK, GOAL_HEIGHT]} />
       </mesh>
-      <mesh position={[0, yLine, zCross]} material={goalFrameMaterial}>
+      <mesh
+        position={[0, yLine, zCross]}
+        material={goalFrameMaterial}
+        raycast={noopRaycast}
+      >
         <boxGeometry
           args={[
             GOAL_WIDTH + GOAL_POST_THICK,
@@ -614,59 +721,77 @@ function PitchMarkings({ lineColor }: { lineColor: string }) {
 
   const outline = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(outlineLoopPoints());
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const halfway = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(halfwayLinePoints());
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const centerCircle = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(centerCirclePoints());
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const penaltyNeg = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(
       penaltyBoxNegativeYPoints(),
     );
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const penaltyPos = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(
       penaltyBoxPositiveYPoints(),
     );
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const goalAreaNeg = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(
       goalAreaNegativeYPoints(),
     );
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const goalAreaPos = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(
       goalAreaPositiveYPoints(),
     );
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const penaltyArcNeg = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(
       penaltyArcNegativeYPoints(),
     );
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   const penaltyArcPos = useMemo(() => {
     const geometry = new LineGeometry().setFromPoints(
       penaltyArcPositiveYPoints(),
     );
-    return new Line2(geometry, material);
+    const line = new Line2(geometry, material);
+    line.raycast = noopRaycast;
+    return line;
   }, [material]);
 
   return (
@@ -684,13 +809,31 @@ function PitchMarkings({ lineColor }: { lineColor: string }) {
   );
 }
 
-function PlayerCircle({
+function InteractivePlayerCircle({
+  playerId,
   x,
   y,
   color,
   radius = DEFAULT_PLAYER_RADIUS,
-}: Pick<PitchPlayer, "x" | "y" | "color" | "radius">) {
+  onHoverEnter,
+  onHoverLeave,
+  onSelect,
+  isFocused,
+  showNumberOverlay,
+  shirtNumber,
+}: Pick<PitchPlayer, "x" | "y" | "color" | "radius"> & {
+  playerId: string;
+  onHoverEnter: (id: string) => void;
+  onHoverLeave: (id: string) => void;
+  /** Primary click on marker — syncs with dropdown selection. */
+  onSelect?: (id: string) => void;
+  /** Hovered HUD / bar focus — white disc. */
+  isFocused: boolean;
+  showNumberOverlay: boolean;
+  shirtNumber: string;
+}) {
   const groupRef = useRef<THREE.Group>(null);
+  const { gl } = useThree();
   const target = useRef(new THREE.Vector3(x, -y, PLAYER_LIFT));
   const current = useRef(new THREE.Vector3(x, -y, PLAYER_LIFT));
   const initialized = useRef(false);
@@ -715,32 +858,293 @@ function PlayerCircle({
     g.position.copy(current.current);
   });
 
+  const numberTexture = useMemo(
+    () => (showNumberOverlay ? createPlayerNumberTexture(shirtNumber) : null),
+    [showNumberOverlay, shirtNumber],
+  );
+
+  useLayoutEffect(() => {
+    return () => {
+      numberTexture?.dispose();
+    };
+  }, [numberTexture]);
+
+  const hitRadius = isFocused ? radius + FOCUS_PLAYER_RING_WIDTH : radius;
+
+  const pointerHandlers = {
+    onPointerDown: (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation();
+      if (e.nativeEvent.button !== 0) return;
+      onSelect?.(playerId);
+    },
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation();
+      gl.domElement.style.cursor = "pointer";
+      onHoverEnter(playerId);
+    },
+    onPointerOut: (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation();
+      gl.domElement.style.cursor = "auto";
+      onHoverLeave(playerId);
+    },
+  };
+
+  const glowColor = isFocused ? FOCUS_PLAYER_COLOR : color;
+  const fillOrder = isFocused ? 2 : 1;
+  const numberOrder = fillOrder + 1;
+  const hitOrder = showNumberOverlay ? fillOrder + 2 : isFocused ? 3 : 2;
+
   return (
     <group ref={groupRef}>
-      <mesh renderOrder={0}>
+      <mesh raycast={noopRaycast} renderOrder={0}>
+        <circleGeometry args={[radius * PLAYER_GLOW_SCALE, 40]} />
+        <meshBasicMaterial
+          color={glowColor}
+          transparent
+          opacity={PLAYER_GLOW_OPACITY}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          depthTest
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {isFocused ? (
+        <mesh raycast={noopRaycast} renderOrder={1}>
+          <ringGeometry args={[radius, radius + FOCUS_PLAYER_RING_WIDTH, 48]} />
+          <meshBasicMaterial
+            color="#000000"
+            depthTest
+            depthWrite
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ) : null}
+      <mesh raycast={noopRaycast} renderOrder={fillOrder}>
         <circleGeometry args={[radius, 32]} />
         <meshBasicMaterial
-          color={color}
+          color={isFocused ? FOCUS_PLAYER_COLOR : color}
           depthTest
           depthWrite
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {showNumberOverlay && numberTexture ? (
+        <mesh
+          raycast={noopRaycast}
+          position={[0, 0, 0.018]}
+          renderOrder={numberOrder}
+        >
+          <planeGeometry
+            args={[
+              radius * PLAYER_NUMBER_PLANE_SCALE,
+              radius * PLAYER_NUMBER_PLANE_SCALE,
+            ]}
+          />
+          <meshBasicMaterial
+            map={numberTexture}
+            transparent
+            depthWrite={false}
+            depthTest
+            toneMapped={false}
+          />
+        </mesh>
+      ) : null}
+      <mesh renderOrder={hitOrder} {...pointerHandlers}>
+        <circleGeometry args={[hitRadius, 32]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          side={THREE.DoubleSide}
         />
       </mesh>
     </group>
   );
 }
 
-function PlayerMarkers({ players }: { players: PitchPlayer[] }) {
+const MemoInteractivePlayerCircle = memo(InteractivePlayerCircle);
+
+function PitchPlayerHudContent({
+  activeId,
+  showClose,
+  onClose,
+}: {
+  activeId: string;
+  showClose?: boolean;
+  onClose?: () => void;
+}) {
+  const info = PLAYERS_BY_ID[activeId];
+  const hasClose = Boolean(showClose && onClose);
+  return (
+    <div
+      className={`relative rounded-lg border border-white/15 bg-[#0c0c0e]/95 py-2 text-left shadow-xl backdrop-blur-md ${hasClose ? "pl-3 pr-8" : "px-3"}`}
+    >
+      {showClose && onClose ? (
+        <button
+          type="button"
+          className="pointer-events-auto absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-md text-[#a1a1a6] transition-colors hover:bg-white/10 hover:text-[#f5f5f7]"
+          aria-label="Clear player selection"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+        >
+          <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </button>
+      ) : null}
+      {info ? (
+        <>
+          <p className="text-[13px] font-semibold leading-snug text-[#f5f5f7]">
+            {info.name.full_name}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[#a1a1a6]">
+            {info.team.acronym} · #{info.match.number} · {info.team.side}
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-[#d2d2d7]">
+            {info.position.position_group} · {info.position.role_name} (
+            {info.position.role_acronym})
+          </p>
+          {info.physical ? (
+            <p className="mt-1.5 border-t border-white/10 pt-1.5 text-[10px] tabular-nums text-[#98989d]">
+              {info.physical.distance != null && (
+                <span>{Math.round(info.physical.distance)} m · </span>
+              )}
+              {info.physical.minutes != null && (
+                <span>{info.physical.minutes.toFixed(1)} min</span>
+              )}
+              {info.physical.m_per_min != null && (
+                <span> · {info.physical.m_per_min.toFixed(1)} m/min</span>
+              )}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-[12px] text-[#f5f5f7]">Player {activeId}</p>
+      )}
+    </div>
+  );
+}
+
+const PlayerMarkers = memo(function PlayerMarkers({
+  players,
+  onHoverEnter,
+  onHoverLeave,
+  onSelect,
+  focusedPlayerId,
+  showPlayerNumbers,
+}: {
+  players: PitchPlayer[];
+  onHoverEnter: (id: string) => void;
+  onHoverLeave: (id: string) => void;
+  onSelect?: (id: string) => void;
+  focusedPlayerId: string | null;
+  showPlayerNumbers: boolean;
+}) {
   return (
     <>
-      {players.map((p) => (
-        <PlayerCircle
-          key={p.id}
-          x={p.x}
-          y={p.y}
-          color={p.color}
-          radius={p.radius}
+      {players.map((p) => {
+        const baseR = p.radius ?? DEFAULT_PLAYER_RADIUS;
+        const markerRadius = showPlayerNumbers
+          ? baseR * PLAYER_MARKER_NUMBER_SCALE
+          : baseR;
+        const info = PLAYERS_BY_ID[p.id];
+        const shirtNumber =
+          info?.match.number != null ? String(info.match.number) : "?";
+        return (
+          <MemoInteractivePlayerCircle
+            key={p.id}
+            playerId={p.id}
+            x={p.x}
+            y={p.y}
+            color={p.color}
+            radius={markerRadius}
+            onHoverEnter={onHoverEnter}
+            onHoverLeave={onHoverLeave}
+            onSelect={onSelect}
+            isFocused={focusedPlayerId === p.id}
+            showNumberOverlay={showPlayerNumbers}
+            shirtNumber={shirtNumber}
+          />
+        );
+      })}
+    </>
+  );
+});
+
+type PitchSceneProps = {
+  players: PitchPlayer[];
+  ballPosition: { x: number; y: number; z?: number } | null | undefined;
+  overhead: boolean;
+  themeColors: PitchThemeColors;
+  setHoveredPlayerId: Dispatch<SetStateAction<string | null>>;
+  /** HUD + white disc: hover if set, else this selection. */
+  hoveredPlayerId: string | null;
+  selectedPlayerId: string | null;
+  onSelectedPlayerIdChange?: (id: string | null) => void;
+  showPlayerNumbers: boolean;
+};
+
+function PitchScene({
+  players,
+  ballPosition,
+  overhead,
+  themeColors,
+  setHoveredPlayerId,
+  hoveredPlayerId,
+  selectedPlayerId,
+  onSelectedPlayerIdChange,
+  showPlayerNumbers,
+}: PitchSceneProps) {
+  const emphasisPlayerId = hoveredPlayerId ?? selectedPlayerId;
+
+  const onHoverEnter = useCallback(
+    (id: string) => setHoveredPlayerId(id),
+    [setHoveredPlayerId],
+  );
+
+  const onHoverLeave = useCallback(
+    (id: string) => {
+      setHoveredPlayerId((h) => (h === id ? null : h));
+    },
+    [setHoveredPlayerId],
+  );
+
+  return (
+    <>
+      <PitchOrbitControls overhead={overhead} />
+      <color attach="background" args={[themeColors.sceneBackground]} />
+      <ambientLight intensity={0.45} />
+      <directionalLight position={[40, 60, 24]} intensity={1.1} />
+      <group rotation={PITCH_ROTATION}>
+        <PitchPlane surfaceColor={themeColors.pitchSurface} />
+        <PitchMarkings lineColor={themeColors.pitchLine} />
+        <CenterSpot lineColor={themeColors.pitchLine} />
+        <PenaltySpots lineColor={themeColors.pitchLine} />
+        {!overhead && (
+          <>
+            <GoalFrame3D yLine={-HL} lineColor={themeColors.pitchLine} />
+            <GoalFrame3D yLine={HL} lineColor={themeColors.pitchLine} />
+          </>
+        )}
+        <PlayerMarkers
+          players={players}
+          onHoverEnter={onHoverEnter}
+          onHoverLeave={onHoverLeave}
+          onSelect={onSelectedPlayerIdChange}
+          focusedPlayerId={emphasisPlayerId}
+          showPlayerNumbers={showPlayerNumbers}
         />
-      ))}
+        {(ballPosition === undefined || ballPosition !== null) && (
+          <FootballBall
+            x={ballPosition?.x ?? 0}
+            y={ballPosition?.y ?? 0}
+            z={ballPosition?.z ?? 0}
+            ballBaseColor={themeColors.accent}
+            ballPanelColor={themeColors.primary}
+            shadowColor={themeColors.foreground}
+          />
+        )}
+      </group>
     </>
   );
 }
@@ -752,29 +1156,52 @@ type PitchViewProps = {
    * Ball centre in pitch plane (m). Omitted = default centre spot; `null` = not drawn (e.g. not detected).
    */
   ballPosition?: { x: number; y: number; z?: number } | null;
+  /** Highlights this player on the pitch when set; hover overrides while over a marker. */
+  selectedPlayerId?: string | null;
+  /** Primary-click on a marker sets the same selection as the player bar dropdown. Pass `null` to clear. */
+  onSelectedPlayerIdChange?: (id: string | null) => void;
 };
 
-export function PitchView({
+export const PitchView = memo(function PitchView({
   players = [],
   ballPosition,
+  selectedPlayerId = null,
+  onSelectedPlayerIdChange,
 }: PitchViewProps) {
   const [overhead, setOverhead] = useState(false);
+  const [showPlayerNumbers, setShowPlayerNumbers] = useState(false);
+  const [hoveredPlayerId, setHoveredPlayerId] = useState<string | null>(null);
   const themeColors = usePitchThemeColors();
+  /** Bottom HUD: hovered marker, else selected player (same priority as marker highlight). */
+  const hudPlayerId = hoveredPlayerId ?? selectedPlayerId;
 
   return (
     <div
       className="relative h-full min-h-0 w-full flex-1 touch-none rounded-xl overflow-hidden border border-border/60"
       title="Drag: orbit · Wheel: zoom · Right-drag or Shift+drag: pan"
+      onPointerLeave={() => setHoveredPlayerId(null)}
     >
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="absolute top-2 right-2 z-10 bg-background/75 backdrop-blur-sm"
-        onClick={() => setOverhead((o) => !o)}
-      >
-        {overhead ? "Default view" : "Overhead view"}
-      </Button>
+      <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="bg-background/75 backdrop-blur-sm"
+          onClick={() => setOverhead((o) => !o)}
+        >
+          {overhead ? "Default view" : "Overhead view"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="bg-background/75 backdrop-blur-sm"
+          aria-pressed={showPlayerNumbers}
+          onClick={() => setShowPlayerNumbers((v) => !v)}
+        >
+          {showPlayerNumbers ? "Hide numbers" : "Show numbers"}
+        </Button>
+      </div>
       <Canvas
         className="touch-none"
         camera={{
@@ -786,34 +1213,31 @@ export function PitchView({
           gl.domElement.style.touchAction = "none";
         }}
       >
-        <PitchOrbitControls overhead={overhead} />
-        <color attach="background" args={[themeColors.sceneBackground]} />
-        <ambientLight intensity={0.45} />
-        <directionalLight position={[40, 60, 24]} intensity={1.1} />
-        <group rotation={PITCH_ROTATION}>
-          <PitchPlane surfaceColor={themeColors.pitchSurface} />
-          <PitchMarkings lineColor={themeColors.pitchLine} />
-          <CenterSpot lineColor={themeColors.pitchLine} />
-          <PenaltySpots lineColor={themeColors.pitchLine} />
-          {!overhead && (
-            <>
-              <GoalFrame3D yLine={-HL} lineColor={themeColors.pitchLine} />
-              <GoalFrame3D yLine={HL} lineColor={themeColors.pitchLine} />
-            </>
-          )}
-          <PlayerMarkers players={players} />
-          {(ballPosition === undefined || ballPosition !== null) && (
-            <FootballBall
-              x={ballPosition?.x ?? 0}
-              y={ballPosition?.y ?? 0}
-              z={ballPosition?.z ?? 0}
-              ballBaseColor={themeColors.accent}
-              ballPanelColor={themeColors.primary}
-              shadowColor={themeColors.foreground}
-            />
-          )}
-        </group>
+        <PitchScene
+          players={players}
+          ballPosition={ballPosition}
+          overhead={overhead}
+          themeColors={themeColors}
+          setHoveredPlayerId={setHoveredPlayerId}
+          hoveredPlayerId={hoveredPlayerId}
+          selectedPlayerId={selectedPlayerId}
+          onSelectedPlayerIdChange={onSelectedPlayerIdChange}
+          showPlayerNumbers={showPlayerNumbers}
+        />
       </Canvas>
+      {hudPlayerId ? (
+        <div className="pointer-events-none absolute bottom-3 right-3 z-10 max-w-[min(280px,calc(100%-5.5rem))] select-none">
+          <PitchPlayerHudContent
+            activeId={hudPlayerId}
+            showClose={selectedPlayerId != null}
+            onClose={
+              onSelectedPlayerIdChange
+                ? () => onSelectedPlayerIdChange(null)
+                : undefined
+            }
+          />
+        </div>
+      ) : null}
     </div>
   );
-}
+});

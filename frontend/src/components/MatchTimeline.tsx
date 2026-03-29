@@ -1,35 +1,38 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Pause, Play } from 'lucide-react'
-import { usePlayback } from '@/context/PlaybackContext'
-import { PLAYBACK_SPEED_OPTIONS } from '@/lib/playback'
-import type { MomentumTimeline } from '@/hooks/useMatchTracking'
-import { cn } from '@/lib/utils'
-import keyMoments from '@/data/timelineKeyMoments.json'
+import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { ChevronDown, Pause, Play } from "lucide-react";
+import { usePlayback } from "@/context/PlaybackContext";
+import { PLAYBACK_SPEED_OPTIONS } from "@/lib/playback";
+import type { MomentumTimeline } from "@/hooks/useMatchTracking";
+import { cn } from "@/lib/utils";
+import keyMoments from "@/data/timelineKeyMoments.json";
 
-type MomentKind = 'goal' | 'shot'
+type MomentKind = "goal" | "shot";
 
 type MomentRow = {
-  frame: number
-  label: string
-  kind: MomentKind
-}
+  frame: number;
+  label: string;
+  kind: MomentKind;
+};
 
 const payload = keyMoments as {
-  matchId: number
-  moments: MomentRow[]
-}
+  matchId: number;
+  moments: MomentRow[];
+};
 
 type Props = {
-  timeline: MomentumTimeline | null
-  className?: string
-}
+  timeline: MomentumTimeline | null;
+  className?: string;
+};
 
 function momentColor(kind: MomentKind): string {
-  if (kind === 'goal') return 'var(--destructive)'
-  return 'var(--primary)'
+  if (kind === "goal") return "var(--destructive)";
+  return "var(--primary)";
 }
 
-export function MatchTimeline({ timeline, className }: Props) {
+export const MatchTimeline = memo(function MatchTimeline({
+  timeline,
+  className,
+}: Props) {
   const {
     frameIndex,
     playbackFrameCount,
@@ -39,62 +42,60 @@ export function MatchTimeline({ timeline, className }: Props) {
     resume,
     playbackSpeed,
     setPlaybackSpeed,
-  } = usePlayback()
-  const trackRef = useRef<HTMLDivElement>(null)
-  const [hoverT, setHoverT] = useState<number | null>(null)
-  const [hoverMoment, setHoverMoment] = useState<MomentRow | null>(null)
+  } = usePlayback();
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [hoverT, setHoverT] = useState<number | null>(null);
+  const [hoverMoment, setHoverMoment] = useState<MomentRow | null>(null);
 
   const moments = useMemo(() => {
-    if (!timeline) return [] as Array<MomentRow & { t: number }>
-    const out: Array<MomentRow & { t: number }> = []
+    if (!timeline) return [] as Array<MomentRow & { t: number }>;
+    const out: Array<MomentRow & { t: number }> = [];
     for (const m of payload.moments) {
-      const t = timeline.chartTForBundleFrame(m.frame)
-      if (t == null) continue
-      out.push({ ...m, t })
+      const t = timeline.chartTForBundleFrame(m.frame);
+      if (t == null) continue;
+      out.push({ ...m, t });
     }
-    return out
-  }, [timeline])
+    return out;
+  }, [timeline]);
 
   const playT =
     timeline && playbackFrameCount > 0
-      ? timeline.chartT[
-          Math.min(frameIndex, timeline.chartT.length - 1)
-        ]!
-      : null
+      ? timeline.chartT[Math.min(frameIndex, timeline.chartT.length - 1)]!
+      : null;
 
   const clientToT01 = useCallback((clientX: number) => {
-    const el = trackRef.current
-    if (!el) return 0
-    const rect = el.getBoundingClientRect()
-    if (rect.width <= 0) return 0
-    const x = clientX - rect.left
-    return Math.max(0, Math.min(1, x / rect.width))
-  }, [])
+    const el = trackRef.current;
+    if (!el) return 0;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    const x = clientX - rect.left;
+    return Math.max(0, Math.min(1, x / rect.width));
+  }, []);
 
   const onTrackPointer = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!timeline || playbackFrameCount <= 0) return
-    const t01 = clientToT01(e.clientX)
-    jumpToFrame(timeline.frameIndexAtChartT(t01))
-  }
+    if (!timeline || playbackFrameCount <= 0) return;
+    const t01 = clientToT01(e.clientX);
+    jumpToFrame(timeline.frameIndexAtChartT(t01));
+  };
 
   const onTrackMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!timeline) return
-    setHoverT(clientToT01(e.clientX))
-  }
+    if (!timeline) return;
+    setHoverT(clientToT01(e.clientX));
+  };
 
   const onTrackLeave = () => {
-    setHoverT(null)
-  }
+    setHoverT(null);
+  };
 
-  const w1Pct = timeline ? timeline.w1Norm * 100 : 50
+  const w1Pct = timeline ? timeline.w1Norm * 100 : 50;
 
   const matchClockLabel =
     timeline && playbackFrameCount > 0
       ? timeline.formatClockForFrame(frameIndex)
-      : '—'
+      : "—";
 
   return (
-    <div className={cn('flex flex-col gap-4 select-none', className)}>
+    <div className={cn("flex flex-col gap-4 select-none", className)}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-5">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex justify-between text-[10px] font-medium tabular-nums text-[#86868b] sm:text-[11px] dark:text-[#98989d]">
@@ -110,48 +111,40 @@ export function MatchTimeline({ timeline, className }: Props) {
               tabIndex={0}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={
-                playT != null ? Math.round(playT * 100) : 0
-              }
+              aria-valuenow={playT != null ? Math.round(playT * 100) : 0}
               aria-label="Match timeline"
               className="relative h-16 w-full cursor-ew-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-[#1d1d1f]/15 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:h-[4.25rem] dark:focus-visible:ring-white/25"
               onPointerDown={(e) => {
-                if ((e.target as HTMLElement).closest('button')) return
-                e.currentTarget.setPointerCapture(e.pointerId)
-                onTrackPointer(e)
+                if ((e.target as HTMLElement).closest("button")) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                onTrackPointer(e);
               }}
               onPointerMove={(e) => {
-                if (e.buttons !== 1 && e.pointerType === 'mouse') return
-                if (e.pressure > 0 || e.buttons === 1) onTrackPointer(e)
+                if (e.buttons !== 1 && e.pointerType === "mouse") return;
+                if (e.pressure > 0 || e.buttons === 1) onTrackPointer(e);
               }}
               onClick={(e) => {
-                if ((e.target as HTMLElement).closest('button')) return
-                if (!timeline || playbackFrameCount <= 0) return
+                if ((e.target as HTMLElement).closest("button")) return;
+                if (!timeline || playbackFrameCount <= 0) return;
                 jumpToFrame(
                   timeline.frameIndexAtChartT(clientToT01(e.clientX)),
-                )
+                );
               }}
               onMouseMove={onTrackMove}
               onMouseLeave={onTrackLeave}
               onKeyDown={(e) => {
-                if (!timeline || playbackFrameCount <= 0) return
-                const step = 0.002
+                if (!timeline || playbackFrameCount <= 0) return;
+                const step = 0.002;
                 const cur =
                   timeline.chartT[
                     Math.min(frameIndex, timeline.chartT.length - 1)
-                  ]!
-                if (
-                  e.key === 'ArrowRight' ||
-                  e.key === 'ArrowDown'
-                ) {
-                  e.preventDefault()
-                  jumpToFrame(timeline.frameIndexAtChartT(cur + step))
-                } else if (
-                  e.key === 'ArrowLeft' ||
-                  e.key === 'ArrowUp'
-                ) {
-                  e.preventDefault()
-                  jumpToFrame(timeline.frameIndexAtChartT(cur - step))
+                  ]!;
+                if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                  e.preventDefault();
+                  jumpToFrame(timeline.frameIndexAtChartT(cur + step));
+                } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  jumpToFrame(timeline.frameIndexAtChartT(cur - step));
                 }
               }}
             >
@@ -180,14 +173,14 @@ export function MatchTimeline({ timeline, className }: Props) {
                   className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1d1d1f]/35 dark:border-[#2c2c2e] dark:focus-visible:outline-white/40"
                   style={{
                     left: `${m.t * 100}%`,
-                    width: m.kind === 'goal' ? 12 : 9,
-                    height: m.kind === 'goal' ? 12 : 9,
+                    width: m.kind === "goal" ? 12 : 9,
+                    height: m.kind === "goal" ? 12 : 9,
                     backgroundColor: momentColor(m.kind),
                   }}
                   onClick={(e) => {
-                    e.stopPropagation()
-                    const idx = timeline?.rowIndexForBundleFrame(m.frame)
-                    if (idx != null) jumpToFrame(idx)
+                    e.stopPropagation();
+                    const idx = timeline?.rowIndexForBundleFrame(m.frame);
+                    if (idx != null) jumpToFrame(idx);
                   }}
                   onMouseEnter={() => setHoverMoment(m)}
                   onMouseLeave={() => setHoverMoment(null)}
@@ -230,7 +223,9 @@ export function MatchTimeline({ timeline, className }: Props) {
         </div>
 
         <div className="hidden w-[min(100%,13rem)] shrink-0 text-[11px] leading-snug text-[#86868b] dark:text-[#98989d] sm:block">
-          <p className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Key moments</p>
+          <p className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
+            Key moments
+          </p>
           <p className="mt-1">
             Goals and shots from dynamic events (merged windows). Drag the bar
             or tap a dot to seek.
@@ -239,14 +234,14 @@ export function MatchTimeline({ timeline, className }: Props) {
             <li className="flex items-center gap-2">
               <span
                 className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: momentColor('goal') }}
+                style={{ backgroundColor: momentColor("goal") }}
               />
               Goal
             </li>
             <li className="flex items-center gap-2">
               <span
                 className="size-2 shrink-0 rounded-full"
-                style={{ backgroundColor: momentColor('shot') }}
+                style={{ backgroundColor: momentColor("shot") }}
               />
               Shot
             </li>
@@ -315,12 +310,12 @@ export function MatchTimeline({ timeline, className }: Props) {
             type="button"
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1d1d1f] text-[#f5f5f7] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.35)] transition-[transform,box-shadow,background-color] duration-200 hover:bg-black hover:shadow-[0_4px_14px_-4px_rgba(0,0,0,0.4)] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1d1d1f]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:pointer-events-none disabled:opacity-40 dark:bg-[#f5f5f7] dark:text-[#1d1d1f] dark:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.9)] dark:hover:bg-white dark:focus-visible:ring-white/35 dark:focus-visible:ring-offset-[#1d1d1f]"
             disabled={playbackFrameCount === 0}
-            aria-label={isPlaying ? 'Pause' : 'Resume'}
+            aria-label={isPlaying ? "Pause" : "Resume"}
             aria-pressed={isPlaying}
             onClick={(e) => {
-              e.stopPropagation()
-              if (isPlaying) pause()
-              else resume()
+              e.stopPropagation();
+              if (isPlaying) pause();
+              else resume();
             }}
           >
             {isPlaying ? (
@@ -332,5 +327,5 @@ export function MatchTimeline({ timeline, className }: Props) {
         </div>
       </div>
     </div>
-  )
-}
+  );
+});

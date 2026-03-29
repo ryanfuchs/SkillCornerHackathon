@@ -28,7 +28,7 @@ if str(_REPO_ROOT) not in sys.path:
 from analysis.ball_chaos import BallChaosAnalyzer
 from analysis.defensive_line import DefensiveLineAnalyzer
 from analysis.line_to_line_acceleration import LineToLineAccelerationAnalyzer
-from analysis.player_clusters import PlayerClusterAnalyzer
+from analysis.player_clusters import PlayerClusterAnalyzer, PlayerClusterIndicatorFrame
 from analysis.position_change import PositionChangeAnalyzer
 from parsing.match import parse_match_bundle
 from parsing.phases_of_play import PhaseOfPlay
@@ -232,11 +232,16 @@ def main() -> None:
         if b is not None:
             max_phase_hi = max(max_phase_hi, b[1])
 
+    # Player clusters: export per-frame raw clustering (`score_raw`). The analyzer's
+    # `.score` is a rolling *mean* over `running_median_window_size` frames (despite the
+    # field name), which heavily damps variance — e.g. ~0.5–0.6 only with window=50.
+    # Use window=1 here so JSON matches instantaneous clustering (same idea as plotting
+    # with window=1 or `score_raw`). Raise the window if you want smoothed series in-app.
     pc_config = PlayerClusterAnalyzer.Config(
-        granularity_x=4,
+        granularity_x=8,
         granularity_y=4,
         min_players_threshold=2,
-        running_median_window_size=10,
+        running_median_window_size=1,
     )
     tactical_grid_cache: dict[int, dict[int, tuple[int, int]]] = {}
     pc = PlayerClusterAnalyzer(bundle, pc_config)
@@ -281,7 +286,9 @@ def main() -> None:
         fid = frames[i].frame
         tracking_frame_ids[i] = fid
         ensure_pc_through(i)
-        by_indicator["player_clusters"][i] = float(pc.analyze_frame(i).score)
+        pc_frame = pc.analyze_frame(i)
+        assert isinstance(pc_frame, PlayerClusterIndicatorFrame)
+        by_indicator["player_clusters"][i] = float(pc_frame.score_raw)
         by_indicator["position_change"][i] = float(pos.analyze_frame(i).score)
         by_indicator["ball_chaos"][i] = float(ball.analyze_frame(fid).score)
         by_indicator["defensive_line"][i] = float(dline.analyze_frame(fid).score)

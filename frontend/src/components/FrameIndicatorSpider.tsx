@@ -181,6 +181,8 @@ function SpiderDataLayer({ values }: { values: number[] }) {
   )
 }
 
+const SPIDER_RENDER_INTERVAL_MS = 50
+
 function useSmoothedIndicatorRow(
   frameIndex: number,
   rowCap: number,
@@ -201,7 +203,8 @@ function useSmoothedIndicatorRow(
 
   useEffect(() => {
     let raf = 0
-    const tick = () => {
+    let lastCommit = 0
+    const tick = (now: number) => {
       const target = targetRef.current
       const prev = smoothRef.current
       let maxErr = 0
@@ -211,13 +214,16 @@ function useSmoothedIndicatorRow(
         maxErr = Math.max(maxErr, Math.abs(t - nv))
         return nv
       })
+      smoothRef.current = next
       if (maxErr < 0.0012) {
         smoothRef.current = [...target]
         setSmooth([...target])
         return
       }
-      smoothRef.current = next
-      setSmooth(next)
+      if (now - lastCommit >= SPIDER_RENDER_INTERVAL_MS) {
+        lastCommit = now
+        setSmooth(next)
+      }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

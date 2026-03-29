@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PitchPlayer } from "@/components/PitchView";
 import { usePlayback } from "@/context/PlaybackContext";
 
@@ -211,10 +211,15 @@ function buildMomentumTimeline(frames: TrackingFrame[]): MomentumTimeline | null
   };
 }
 
+const EMPTY_PLAYERS: PitchPlayer[] = [];
+
 export function useMatchTracking() {
   const { frameIndex, setPlaybackFrameCount, setFrameIndex } = usePlayback();
   const [frames, setFrames] = useState<TrackingFrame[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const prevPlayersRef = useRef<PitchPlayer[]>(EMPTY_PLAYERS);
+  const prevBallRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const prevFrameIdxRef = useRef(-1);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,17 +261,41 @@ export function useMatchTracking() {
   const snapshot = useMemo(() => {
     if (!frames?.length) {
       return {
-        players: [] as PitchPlayer[],
+        players: EMPTY_PLAYERS,
         ball: null as { x: number; y: number; z: number } | null,
         frame: 0,
         timestamp: null as string | null,
       };
     }
     const safe = Math.min(Math.max(0, frameIndex), frames.length - 1);
+    if (safe === prevFrameIdxRef.current) {
+      return {
+        players: prevPlayersRef.current,
+        ball: prevBallRef.current,
+        frame: frames[safe]!.frame,
+        timestamp: frames[safe]!.timestamp ?? null,
+      };
+    }
+    prevFrameIdxRef.current = safe;
     const f = frames[safe]!;
+    const newPlayers = frameToPitchPlayers(f);
+    const prev = prevPlayersRef.current;
+    let same = prev.length === newPlayers.length;
+    if (same) {
+      for (let i = 0; i < newPlayers.length; i++) {
+        if (prev[i]!.x !== newPlayers[i]!.x || prev[i]!.y !== newPlayers[i]!.y || prev[i]!.id !== newPlayers[i]!.id) {
+          same = false;
+          break;
+        }
+      }
+    }
+    const stablePlayers = same ? prev : newPlayers;
+    prevPlayersRef.current = stablePlayers;
+    const newBall = frameToBall(f);
+    prevBallRef.current = newBall;
     return {
-      players: frameToPitchPlayers(f),
-      ball: frameToBall(f),
+      players: stablePlayers,
+      ball: newBall,
       frame: f.frame,
       timestamp: f.timestamp ?? null,
     };

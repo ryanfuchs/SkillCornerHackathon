@@ -17,8 +17,16 @@ FIELD_X_MAX: float = 52.5
 FIELD_Y_MIN: float = -34
 FIELD_Y_MAX: float = 34
 
-# Pairwise distance contribution: 1 / (1 + d / sigma_m). Small d -> ~1, large d -> ~0.
-DISTANCE_SCORE_SIGMA_M: float = 1
+# Kernel for cohesion inside a cluster: 1 / (1 + d / sigma_m).
+DISTANCE_SCORE_SIGMA_M: float = 8.0
+# Edges for grouping players into a cluster (meters). Tighter than typical "near" pairs.
+CLUSTER_LINK_M: float = 7.0
+# Only pairs at most this far apart count toward cohesion (within a component).
+PAIR_KERNEL_MAX_M: float = 12.0
+# Mass term (size / n) ** exp; 1.0 = linear, 2.0 = squared.
+CLUSTER_MASS_EXPONENT: float = 1.12
+# Scale mass×cohesion toward [0, 1]; lower = gentler (5 was heavy-handed).
+SCORE_STRETCH: float = 2.75
 
 
 class Bucket(BaseModel):
@@ -105,9 +113,6 @@ class PlayerGraph:
         distance_matrix = np.zeros((n, n))
         for i in range(n):
             for j in range(i + 1, n):
-                if not self.players[i].is_detected or not self.players[j].is_detected:
-                    distance_matrix[i, j] = float("inf")
-                    continue
                 distance_matrix[i, j] = np.linalg.norm(
                     [
                         self.players[i].x - self.players[j].x,
@@ -117,22 +122,74 @@ class PlayerGraph:
         self._distance_matrix = distance_matrix
 
     def score_distance_matrix(self) -> float:
-        """Mean pairwise score in (0, 1], inverse to distance: 1/(1 + d/sigma)."""
-        if self._distance_matrix is None or len(self.players) < 2:
+        """How dominant and tight is the largest close pack of players, in [0, 1].
+
+        Uses **all** players in ``player_data`` (positions are always present; ``is_detected``
+        is only for camera/visibility and is ignored here). Builds a graph with edges at
+        ``CLUSTER_LINK_M``, finds connected components, and scores the **largest** component as
+        ``(size / n) ** CLUSTER_MASS_EXPONENT × mean_kernel``, then ``× SCORE_STRETCH`` before
+        capping at 1. Pairs for cohesion use ``PAIR_KERNEL_MAX_M``.
+        """
+        if self._distance_matrix is None:
             return 0.0
-        n = len(self.players)
+        m = len(self.players)
+        if m < 2:
+            return 0.0
+
         dm = self._distance_matrix
         sigma = DISTANCE_SCORE_SIGMA_M
-        ds = []
-        for i in range(n):
-            for j in range(i + 1, n):
-                d = float(dm[i, j])
-                if d > 10.0:
+        link = CLUSTER_LINK_M
+        pair_max = PAIR_KERNEL_MAX_M
+        mass_exp = CLUSTER_MASS_EXPONENT
+        stretch = SCORE_STRETCH
+
+        parent = list(range(m))
+
+        def find(a: int) -> int:
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+
+        def union(a: int, b: int) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        for a in range(m):
+            for b in range(a + 1, m):
+                d = float(dm[a, b])
+                if not np.isfinite(d) or d > link:
                     continue
-                ds.append(1.0 / (1.0 + d / sigma))
-        if len(ds) == 0:
-            return 0.0
-        return float(np.median(sorted(ds)))
+                union(a, b)
+
+        groups: dict[int, list[int]] = {}
+        for a in range(m):
+            r = find(a)
+            groups.setdefault(r, []).append(a)
+
+        n_players = float(m)
+        best = 0.0
+        for members_local in groups.values():
+            k = len(members_local)
+            if k < 2:
+                continue
+            kernels: list[float] = []
+            for a in range(k):
+                for b in range(a + 1, k):
+                    ia, ib = members_local[a], members_local[b]
+                    lo, hi = (ia, ib) if ia < ib else (ib, ia)
+                    d = float(dm[lo, hi])
+                    if not np.isfinite(d) or d > pair_max:
+                        continue
+                    kernels.append(1.0 / (1.0 + d / sigma))
+            if not kernels:
+                continue
+            cohesion = float(np.mean(kernels))
+            mass = (k / n_players) ** mass_exp
+            best = max(best, mass * cohesion)
+
+        return float(min(1.0, best * stretch))
 
 
 class PlayerClusterAnalyzer(IndicatorAnalyzer[PlayerClustersKind]):

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import {
   Area,
   CartesianGrid,
@@ -132,17 +138,46 @@ function isPhaseRecord(p: PhaseRecord | LegacyPhaseMeta): p is PhaseRecord {
   return p.phaseOfPlay != null && Object.keys(p.phaseOfPlay).length > 0
 }
 
-function phaseLabel(p: PhaseRecord | LegacyPhaseMeta) {
+/** Title-case phase type strings from CSV (e.g. "create" → "Create", "build_up" → "Build Up"). */
+function formatPhaseTypeLabel(raw: string): string {
+  const s = raw.trim()
+  if (!s) return 'Unknown'
+  return s
+    .split(/[\s_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
+/** Clock + phase type for the header; legacy exports may omit match-clock end. */
+function phaseHeaderMeta(p: PhaseRecord | LegacyPhaseMeta) {
   if (isPhaseRecord(p)) {
     const row = p.phaseOfPlay
-    const period = row.period as number
-    const minute = row.minute_start as number
-    const second = row.second_start as number
-    const typ = String(row.team_in_possession_phase_type ?? '')
-    return `P${period} ${minute}:${String(second).padStart(2, '0')} · ${typ}`
+    const start =
+      String(row.time_start ?? '').trim() ||
+      (() => {
+        const minute = row.minute_start as number
+        const second = row.second_start as number
+        if (minute == null || second == null) return ''
+        return `${minute}:${String(second).padStart(2, '0')}`
+      })()
+    const end = String(row.time_end ?? '').trim()
+    const typ = String(row.team_in_possession_phase_type ?? '').trim() || 'Unknown'
+    return { start, end, phaseType: typ }
   }
   const l = p as LegacyPhaseMeta
-  return `P${l.period ?? '?'} ${l.minuteStart ?? '?'}:${String(l.secondStart ?? 0).padStart(2, '0')} · ${l.phaseType ?? ''}`
+  const typ = String(l.phaseType ?? '').trim() || 'Unknown'
+  const minute = l.minuteStart
+  const second = l.secondStart
+  const start =
+    minute != null && second != null
+      ? `${minute}:${String(second).padStart(2, '0')}`
+      : ''
+  return {
+    start,
+    end: '',
+    phaseType: typ,
+  }
 }
 
 function frameSeriesLength(fs: FrameSeries): number {
@@ -187,6 +222,44 @@ function chartRowsFromFrameWindow(
 }
 
 type ChartRow = ReturnType<typeof chartRowsFromFrameWindow>[number]
+
+/** Shared with <YAxis width={…} /> and ComposedChart margin — pointer→frame mapping must match plot bounds. */
+const PHASE_CHART_Y_AXIS_WIDTH = 36
+const PHASE_CHART_MARGIN_RIGHT = 8
+
+const PHASE_CHART_PLOT = {
+  marginLeft: 0,
+  marginRight: PHASE_CHART_MARGIN_RIGHT,
+  yAxisWidth: PHASE_CHART_Y_AXIS_WIDTH,
+} as const
+
+/**
+ * Linear map across the plot width (Recharts’ discrete activeTooltipIndex only snaps to strided points,
+ * which feels like “left vs right of center” instead of following drag).
+ * Pointer position uses the same SVG scaling idea as Recharts getRelativeCoordinate.
+ */
+function bundleFrameFromPlotPointerX(
+  event: ReactMouseEvent<SVGGraphicsElement>,
+  domainMin: number,
+  domainMax: number,
+): number {
+  const target = event.currentTarget
+  const rect = target.getBoundingClientRect()
+  const svg = target as SVGSVGElement
+  const bbox = typeof svg.getBBox === 'function' ? svg.getBBox() : { width: rect.width, height: rect.height }
+  const scaleX = bbox.width > 0 ? rect.width / bbox.width : 1
+  const relativeX = (event.clientX - rect.left) / scaleX
+  const chartWidth = bbox.width
+  const plotLeft = PHASE_CHART_PLOT.marginLeft + PHASE_CHART_PLOT.yAxisWidth
+  const plotWidth = chartWidth - plotLeft - PHASE_CHART_PLOT.marginRight
+  if (plotWidth <= 0 || !Number.isFinite(domainMin) || !Number.isFinite(domainMax)) {
+    return Math.round(domainMin)
+  }
+  if (domainMax === domainMin) return Math.round(domainMin)
+  const t = (relativeX - plotLeft) / plotWidth
+  const clampedT = Math.max(0, Math.min(1, t))
+  return Math.round(domainMin + clampedT * (domainMax - domainMin))
+}
 
 function frameIndexFromHoverState(
   state: MouseHandlerDataParam,
@@ -246,6 +319,7 @@ export function PhaseBreakdownChart() {
   const {
     phaseIndex,
     frameIndex,
+    playbackFrameCount,
     setPhaseIndex,
     jumpToFrame,
     pause,
@@ -253,7 +327,6 @@ export function PhaseBreakdownChart() {
     isPlaying,
   } = usePlayback()
   const wasPlayingBeforeScrubRef = useRef(true)
-  const [hoverWindowCenterFrame, setHoverWindowCenterFrame] = useState<number | null>(null)
   const phases = payload.phases
   const n = phases.length
   const frameSeries = payload.frameSeries
@@ -274,6 +347,7 @@ export function PhaseBreakdownChart() {
   }, [frameIndex, n, phases, setPhaseIndex])
 
   const phase = phases[safePhase]
+  const phaseHeader = phase ? phaseHeaderMeta(phase) : null
   const goToPhase = useCallback(
     (nextIndex: number) => {
       const clamped = Math.max(0, Math.min(n - 1, nextIndex))
@@ -285,12 +359,17 @@ export function PhaseBreakdownChart() {
   )
   const totalFrames = frameSeriesLength(frameSeries)
 
-  const activeWindowCenterFrame =
-    hoverWindowCenterFrame != null && totalFrames > 0
-      ? Math.max(0, Math.min(totalFrames - 1, hoverWindowCenterFrame))
+  /** Match pitch/timeline: same index as playback (no throttle — throttle caused line/window lag). */
+  const syncFrameIndex =
+    totalFrames > 0 && playbackFrameCount > 0
+      ? Math.min(frameIndex, totalFrames - 1, playbackFrameCount - 1)
       : totalFrames > 0
-        ? Math.max(0, Math.min(totalFrames - 1, frameIndex))
+        ? Math.min(frameIndex, totalFrames - 1)
         : 0
+
+  /** Always track playback — a frozen “hover center” caused the window/line to drift after scrub. */
+  const activeWindowCenterFrame =
+    totalFrames > 0 ? Math.max(0, Math.min(totalFrames - 1, syncFrameIndex)) : 0
 
   const { windowStart, windowEnd } = useMemo(() => {
     if (totalFrames <= 0) {
@@ -319,7 +398,7 @@ export function PhaseBreakdownChart() {
   const bundleEnd = phase?.bundleEnd ?? null
 
   const safeFrameIndex =
-    totalFrames > 0 ? Math.max(0, Math.min(totalFrames - 1, frameIndex)) : null
+    totalFrames > 0 ? Math.max(0, Math.min(totalFrames - 1, syncFrameIndex)) : null
 
   const frameStartEnd =
     isPhaseRecord(phase) && phase.phaseOfPlay
@@ -346,46 +425,98 @@ export function PhaseBreakdownChart() {
     return markers
   }, [phases, windowEnd, windowStart])
 
-  const handleChartMouseMove = useCallback(
-    (state: MouseHandlerDataParam) => {
-      if (totalFrames <= 0) return
-      const b = frameIndexFromHoverState(state, chartData, 0, totalFrames - 1)
-      if (b != null) jumpToFrame(b)
+  const hoverRafRef = useRef(0)
+  /** Touch/pen drag: Recharts often reports buttons=0 on move; track active pointer scrub. */
+  const touchScrubRef = useRef(false)
+
+  const scrubToChartState = useCallback(
+    (state: MouseHandlerDataParam, event?: ReactMouseEvent<SVGGraphicsElement>) => {
+      if (totalFrames <= 0 || chartData.length === 0) return
+      cancelAnimationFrame(hoverRafRef.current)
+      hoverRafRef.current = requestAnimationFrame(() => {
+        const domainMin = chartData[0]!.frame
+        const domainMax = chartData[chartData.length - 1]!.frame
+        const b = event
+          ? bundleFrameFromPlotPointerX(event, domainMin, domainMax)
+          : frameIndexFromHoverState(state, chartData, 0, totalFrames - 1)
+        if (b == null) return
+        jumpToFrame(Math.max(0, Math.min(totalFrames - 1, b)))
+      })
     },
     [chartData, jumpToFrame, totalFrames],
   )
 
+  /** Only scrub while primary button is held (drag), not on passive hover. */
+  const handleChartMouseMove = useCallback(
+    (
+      state: MouseHandlerDataParam,
+      event?: ReactMouseEvent<SVGGraphicsElement>,
+    ) => {
+      const buttons = event?.nativeEvent?.buttons ?? 0
+      const leftHeld = (buttons & 1) !== 0
+      if (!leftHeld && !touchScrubRef.current) return
+      scrubToChartState(state, event)
+    },
+    [scrubToChartState],
+  )
+
+  const handleChartClick = useCallback(
+    (state: MouseHandlerDataParam, event?: ReactMouseEvent<SVGGraphicsElement>) => {
+      scrubToChartState(state, event)
+    },
+    [scrubToChartState],
+  )
+
   const handleChartAreaEnter = useCallback(() => {
     wasPlayingBeforeScrubRef.current = isPlaying
-    setHoverWindowCenterFrame((cur) =>
-      cur != null
-        ? cur
-        : totalFrames > 0
-          ? Math.max(0, Math.min(totalFrames - 1, frameIndex))
-          : 0,
-    )
     pause()
-  }, [frameIndex, isPlaying, pause, totalFrames])
+  }, [isPlaying, pause])
 
   const handleChartAreaLeave = useCallback(() => {
-    setHoverWindowCenterFrame(null)
     if (wasPlayingBeforeScrubRef.current) resume()
   }, [resume])
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground truncate max-w-[min(100%,28rem)]">
-          {phase ? phaseLabel(phase) : "No phase data"}
-          {bundleStart != null &&
-            frameStartEnd.frameStart != null &&
-            frameStartEnd.frameEnd != null && (
-              <span className="ml-2 tabular-nums opacity-80">
-                frames {frameStartEnd.frameStart}–{frameStartEnd.frameEnd} ·
-                bundle {bundleStart}–{bundleEnd}
-              </span>
-            )}
-        </p>
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
+        {phase && phaseHeader ? (
+          <div className="min-w-0 flex max-w-[min(100%,32rem)] flex-col gap-2">
+            <div className="flex flex-col gap-1 text-sm leading-snug text-foreground">
+              <p className="text-sm">
+                <span className="text-muted-foreground">Phase type: </span>
+                <span className="font-medium text-foreground">
+                  {formatPhaseTypeLabel(phaseHeader.phaseType)}
+                </span>
+              </p>
+              <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="tabular-nums">
+                  <span className="font-medium text-foreground">Start </span>
+                  <span className="text-foreground">
+                    {phaseHeader.start || '—'}
+                  </span>
+                  <span className="mx-1.5 text-muted-foreground" aria-hidden>
+                    ·
+                  </span>
+                  <span className="font-medium text-foreground">End </span>
+                  <span className="text-foreground">
+                    {phaseHeader.end || '—'}
+                  </span>
+                </span>
+              </p>
+              {bundleStart != null &&
+                frameStartEnd.frameStart != null &&
+                frameStartEnd.frameEnd != null && (
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    Tracking frames {frameStartEnd.frameStart}–
+                    {frameStartEnd.frameEnd} · bundle indices {bundleStart}–
+                    {bundleEnd}
+                  </p>
+                )}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No phase data</p>
+        )}
         <div className="flex items-center gap-1 shrink-0">
           <Button
             type="button"
@@ -422,12 +553,39 @@ export function PhaseBreakdownChart() {
           className="h-72 w-full min-h-72 min-w-0 sm:h-80 sm:min-h-80"
           onMouseEnter={handleChartAreaEnter}
           onMouseLeave={handleChartAreaLeave}
+          onPointerDown={(e) => {
+            if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+              touchScrubRef.current = true
+              e.currentTarget.setPointerCapture(e.pointerId)
+            }
+          }}
+          onPointerUp={(e) => {
+            if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+              touchScrubRef.current = false
+              try {
+                e.currentTarget.releasePointerCapture(e.pointerId)
+              } catch {
+                /* not captured */
+              }
+            }
+          }}
+          onPointerCancel={(e) => {
+            if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+              touchScrubRef.current = false
+            }
+          }}
         >
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={chartData}
-              margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              margin={{
+                top: 4,
+                right: PHASE_CHART_MARGIN_RIGHT,
+                left: 0,
+                bottom: 0,
+              }}
               onMouseMove={handleChartMouseMove}
+              onClick={handleChartClick}
             >
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis
@@ -444,7 +602,7 @@ export function PhaseBreakdownChart() {
               />
               <YAxis
                 domain={[0, 1]}
-                width={36}
+                width={PHASE_CHART_Y_AXIS_WIDTH}
                 tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                 tickCount={6}
               />
