@@ -23,13 +23,13 @@ export function LandingPage() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link
-              to="/match"
+              to="/match-lab"
               className={cn(
                 buttonVariants({ size: 'lg' }),
                 'h-11 rounded-full px-8 text-[15px] shadow-sm',
               )}
             >
-              Open match view
+              Open MatchLab
             </Link>
             <Link
               to="/methodology"

@@ -5,7 +5,7 @@ type SiteLayoutProps = {
   children: ReactNode
   /** Marketing-style neutral canvas */
   marketing?: boolean
-  /** Same canvas as marketing; use with `.dashboard-apple` for match dashboard */
+  /** Same canvas as marketing; use with `.dashboard-apple` for MatchLab */
   dashboard?: boolean
 }
 

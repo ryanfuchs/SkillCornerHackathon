@@ -66,7 +66,7 @@ function playerNameFromGoalLabel(who: string): string {
 
 type RightAsidePanel = 'broadcast' | 'analytics'
 
-function matchTourSteps(setAside: (p: RightAsidePanel) => void): Step[] {
+function matchLabTourSteps(setAside: (p: RightAsidePanel) => void): Step[] {
   const delayAside = () =>
     new Promise<void>((resolve) => {
       setTimeout(resolve, 200)
@@ -155,7 +155,7 @@ function matchTourSteps(setAside: (p: RightAsidePanel) => void): Step[] {
   ]
 }
 
-export function MatchDashboardPage() {
+export function MatchLabPage() {
   const { players, ball, loadError, loaded, momentumTimeline, frame } =
     useMatchTracking()
   const { home: homeScore, away: awayScore } = scoreAtBundleFrame(frame)
@@ -185,7 +185,7 @@ export function MatchDashboardPage() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [runTour, setRunTour] = useState(false)
   const tourSteps = useMemo(
-    () => matchTourSteps(setOpenAside),
+    () => matchLabTourSteps(setOpenAside),
     [setOpenAside],
   )
 

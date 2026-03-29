@@ -30,8 +30,8 @@ export function SiteNav() {
           <NavLink to="/" end className={navLinkClass}>
             Home
           </NavLink>
-          <NavLink to="/match" className={navLinkClass}>
-            Match
+          <NavLink to="/match-lab" className={navLinkClass}>
+            MatchLab
           </NavLink>
           <NavLink to="/methodology" className={navLinkClass}>
             Concept

@@ -26,7 +26,7 @@ export function DataPipelinePage() {
           Data pipeline
         </h1>
         <p className="mt-5 text-[19px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
-          The match dashboard reads precomputed JSON under{" "}
+          MatchLab reads precomputed JSON under{" "}
           <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
             frontend/src/data/
           </code>

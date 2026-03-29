@@ -131,7 +131,7 @@
     --video-well: color-mix(in srgb, #1a3263 52%, black);
 }
 
-/* Match dashboard: tokens for charts + controls inside frosted widgets */
+/* MatchLab: tokens for charts + controls inside frosted widgets */
 .dashboard-apple {
   --foreground: #1d1d1f;
   --muted-foreground: #6e6e73;

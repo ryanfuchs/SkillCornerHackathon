@@ -86,13 +86,13 @@ export function ConceptPage() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  to="/match"
+                  to="/match-lab"
                   className={cn(
                     buttonVariants({ size: 'lg' }),
                     'h-11 rounded-full px-7 text-[15px] shadow-md',
                   )}
                 >
-                  Open match lab
+                  Open MatchLab
                   <ArrowRight className="ml-2 size-4" aria-hidden />
                 </Link>
                 <a
@@ -227,7 +227,7 @@ export function ConceptPage() {
             <p className="max-w-[720px] text-[17px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
               Five complementary scores, each normalized from zero to one, come
               straight from SkillCorner style tracking. Together they power the
-              charts and radar inside the match view.
+              charts and radar inside MatchLab.
             </p>
             <div className="mt-10">
               <IndicatorExplorer />
@@ -312,13 +312,13 @@ export function ConceptPage() {
                   See Ball Acceleration and the other metrics move with the ball.
                 </p>
                 <Link
-                  to="/match"
+                  to="/match-lab"
                   className={cn(
                     buttonVariants({ size: 'lg' }),
                     'mt-5 inline-flex h-11 rounded-full px-8 text-[15px]',
                   )}
                 >
-                  Launch match view
+                  Launch MatchLab
                 </Link>
               </div>
             </div>
