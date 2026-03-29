@@ -25,11 +25,11 @@ const INDICATORS: {
   {
     id: 'ball_chaos',
     letter: 'B',
-    title: 'Ball chaos',
+    title: 'Ball Acceleration',
     accent: '#f97316',
     metricVariant: 'ball_chaos',
     summary:
-      'Height, speed, and how the path bends between frames all feed this score, including sharp turns, sudden bursts, and awkward bounces. Values near one feel like frantic ping pong while values near zero describe calm, controlled circulation.',
+      'Height, speed, and how the path bends between frames all feed this score, including sharp turns, sudden bursts, and awkward bounces. Values near one highlight strong acceleration and goalward motion; values near zero describe calm, controlled circulation.',
   },
   {
     id: 'position_change',
@@ -38,7 +38,7 @@ const INDICATORS: {
     accent: '#22c55e',
     metricVariant: 'position_change',
     summary:
-      'Every player snaps to a discrete tactical grid each frame. We add the Euclidean grid distance for everyone who appears in two consecutive frames, then normalize the total into a zero to one range. A higher value means the whole team churned position together.',
+      'Every player snaps to a discrete tactical grid each frame. We add the Euclidean grid distance for everyone who appears in two consecutive frames, then normalize the total into a zero to one range. A higher value means more of the side is shifting tactical slots at once—widespread, simultaneous movement that makes the shape feel more unsettled between frames.',
   },
   {
     id: 'line_to_line',
@@ -75,7 +75,7 @@ export function IndicatorExplorer() {
         <div
           className="flex w-full flex-col gap-2 rounded-2xl bg-black/[0.035] p-1.5 dark:bg-white/[0.06] sm:inline-flex sm:w-auto sm:flex-row sm:flex-wrap"
           role="tablist"
-          aria-label="Chaos indicators"
+          aria-label="Analytics indicators"
         >
           {INDICATORS.map((ind, i) => (
             <button
@@ -131,10 +131,6 @@ export function IndicatorExplorer() {
         </h3>
         <p className="mt-4 min-h-0 flex-1 text-[17px] leading-[1.5] text-[#6e6e73] dark:text-[#a1a1a6]">
           {cur.summary}
-        </p>
-        <p className="mt-5 shrink-0 text-[12px] font-medium tracking-wide text-[#86868b] dark:text-[#98989d] lg:mt-auto lg:pt-4">
-          Illustrative intensity only. Each metric is stored from zero to one on
-          every frame.
         </p>
       </div>
     </div>

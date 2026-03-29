@@ -508,7 +508,7 @@ function LineToLineLayer({ arrowId, phase }: { arrowId: string; phase: number })
 const ARIA_LABELS: Record<IndicatorMetricVariant, string> = {
   player_clusters: 'Player clustering diagram',
   position_change: 'Position change diagram',
-  ball_chaos: 'Ball chaos diagram',
+  ball_chaos: 'Ball Acceleration diagram',
   defensive_line: 'Defensive line diagram',
   line_to_line_acceleration: 'Line to line acceleration diagram',
 }

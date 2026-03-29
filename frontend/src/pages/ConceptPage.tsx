@@ -222,7 +222,7 @@ export function ConceptPage() {
           <SectionShell
             id="indicators"
             eyebrow="03 Models"
-            title="Chaos indicators"
+            title="Analytics indicators"
           >
             <p className="max-w-[720px] text-[17px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
               Five complementary scores, each normalized from zero to one, come
@@ -271,10 +271,10 @@ export function ConceptPage() {
                   body: (
                     <>
                       <Link
-                        to="/methodology/timeline"
+                        to="/methodology/data-pipeline"
                         className="font-medium text-[#0066cc] underline-offset-2 hover:underline dark:text-[#2997ff]"
                       >
-                        Timeline &amp; sync
+                        Data pipeline
                       </Link>
                       {' and '}
                       <Link
@@ -309,7 +309,7 @@ export function ConceptPage() {
             <div className="mt-12 rounded-[1.35rem] border border-black/[0.06] bg-gradient-to-r from-[#1a3263] to-[#547792] p-[1px] dark:border-white/[0.12]">
               <div className="rounded-[1.3rem] bg-[#fbfbfd] px-6 py-8 text-center dark:bg-[#1c1c1e]">
                 <p className="text-[17px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
-                  See the chaos score move with the ball.
+                  See Ball Acceleration and the other metrics move with the ball.
                 </p>
                 <Link
                   to="/match"

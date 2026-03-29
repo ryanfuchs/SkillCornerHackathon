@@ -39,7 +39,7 @@ const AXES: {
 }[] = [
   { key: 'player_clusters', subject: 'Player\nclusters', color: '#a855f7' },
   { key: 'position_change', subject: 'Position\nchange', color: '#22c55e' },
-  { key: 'ball_chaos', subject: 'Ball chaos', color: '#f97316' },
+  { key: 'ball_chaos', subject: 'Ball\nAcceleration', color: '#f97316' },
   { key: 'defensive_line', subject: 'Defensive\nline', color: '#38bdf8' },
   {
     key: 'line_to_line_acceleration',

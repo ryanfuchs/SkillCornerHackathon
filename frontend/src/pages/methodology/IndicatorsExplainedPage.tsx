@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { IndicatorMetricMiniPitch } from '@/components/concept/IndicatorMetricMiniPitch'
 import { SiteLayout } from '@/components/layout/SiteLayout'
 
@@ -36,6 +37,140 @@ export function IndicatorsExplainedPage() {
           . Each analyzer writes one score per frame on a scale from zero to
           one. The phase chart reads those values from the exported JSON.
         </p>
+
+        <Section title="Shape graphs">
+          <p>
+            In{" "}
+            <a
+              href="https://www.nature.com/articles/s44260-025-00047-x"
+              className="font-medium text-[#0066cc] underline-offset-2 hover:underline dark:text-[#2997ff]"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Shape graphs and the instantaneous inference of tactical positions
+              in soccer
+            </a>{" "}
+            (Brandes et al.,{" "}
+            <em className="not-italic">npj Complexity</em>, 2025,{" "}
+            <span className="whitespace-nowrap">doi:10.1038/s44260-025-00047-x</span>
+            ), a <strong>shape graph</strong> is a graph{" "}
+            <span className="whitespace-nowrap font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              G<sub>t</sub> = (V<sub>t</sub>, E<sub>t</sub>)
+            </span>{" "}
+            at discrete time index{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              t
+            </span>
+            . Vertices{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              V<sub>t</sub>
+            </span>{" "}
+            are outfield players; each carries a planar coordinate{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              p<sub>i</sub>(t) ∈ ℝ²
+            </span>
+            . Edges{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              E<sub>t</sub>
+            </span>{" "}
+            form a <strong>subgraph of the Delaunay triangulation</strong>{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              DT(V<sub>t</sub>)
+            </span>
+            : the maximal planar straight-line graph on{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              V<sub>t</sub>
+            </span>{" "}
+            in general position, uniquely characterised (up to degeneracy
+            handling) by the <strong>empty circumcircle</strong> property—no site
+            lies inside the circumdisk of any Delaunay triangle. Equivalently,{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              DT(V<sub>t</sub>)
+            </span>{" "}
+            is the dual graph of the Voronoi tessellation of{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              {"{p_i(t)}"}
+            </span>
+            , so adjacency encodes a notion of <strong>natural neighbours</strong>{" "}
+            in the plane at that instant.
+          </p>
+          <p>
+            The shape graph keeps a <strong>principled subset</strong> of Delaunay
+            edges—still a combinatorial object on the same vertex set—so tactical
+            structure is carried by{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              E<sub>t</sub> ⊆ E(DT(V<sub>t</sub>))
+            </span>{" "}
+            rather than the full triangulation. Operationally, each frame yields an
+            independent planar graph; inference is{" "}
+            <strong>instantaneous</strong> (
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              t ↦ G<sub>t</sub>
+            </span>
+            ) instead of first smoothing{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              {"{p_i(t)}"}
+            </span>{" "}
+            over a time window and then triangulating once. That raises temporal
+            resolution and keeps the geometry tied to a single observation of the
+            point set—useful whenever downstream scores must be explained frame by
+            frame.
+          </p>
+          <p>
+            Standard computational geometry builds{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              DT(V<sub>t</sub>)
+            </span>{" "}
+            in{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              O(n log n)
+            </span>{" "}
+            for{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              n = |V<sub>t</sub>|
+            </span>{" "}
+            in the plane. In this repository,{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              position_analysis.py
+            </code>{" "}
+            likewise lifts per-frame positions into a Delaunay complex (via{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              scipy.spatial.Delaunay
+            </code>
+            ) before tactical grid inference and related indicators—conceptually
+            aligned with treating{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              G<sub>t</sub>
+            </span>{" "}
+            as the primary spatial carrier for each tick of tracking data.
+          </p>
+          <p>
+            <strong>In this codebase,</strong>{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              frame_to_shape_graph
+            </code>{" "}
+            builds that carrier: start from the Delaunay edges, then prune with a
+            priority queue using the angle-based tests described in the
+            implementation (edges above a{" "}
+            <span className="font-mono text-[15px] text-[#1d1d1f] dark:text-[#e8e8ed]">
+              3π/4
+            </span>{" "}
+            combined-angle threshold are removed).{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              frame_to_positions
+            </code>{" "}
+            reads the resulting graph—internal faces, barycenters (including
+            tilted bridging edges), and alternating horizontal / vertical split
+            passes—and outputs a pair of small-integer tactical indices per
+            player.{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              inferred_positions_for_frame
+            </code>{" "}
+            wraps that pipeline for a full tracking row and can memoize by bundle
+            frame id so several analyzers share one shape-graph construction per
+            instant.
+          </p>
+        </Section>
 
         <Section title="Player clusters">
           <IndicatorMetricMiniPitch
@@ -77,17 +212,36 @@ export function IndicatorsExplainedPage() {
             squad.
           </p>
           <p>
+            <strong>Shape graph:</strong>{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              PositionChangeAnalyzer
+            </code>{" "}
+            uses{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              inferred_positions_for_frame
+            </code>
+            , so both frames get the same per-instant shape-graph → position-plot
+            tactical indices. The score is the sum of Euclidean distances on that
+            discrete grid over players present in both adjacent samples, scaled
+            into <strong>[0, 1]</strong> by a fixed upper bound on total grid
+            movement. A shared tactical-grid cache can be passed in from the
+            phase exporter so position change and line-to-line acceleration do
+            not rebuild the graph twice for the same frame.
+          </p>
+          <p>
             We divide that raw sum by a fixed ceiling and publish the result as
             a score from zero to one.{" "}
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
             </strong>{" "}
-            values mean the group moved more collectively from one frame to the
-            next.
+            values mean more players are jumping grid cells in the same step, so
+            the team’s inferred shape is changing faster and across more of the
+            pitch—tactical “noise” from coordinated repositioning rather than a
+            stable picture.
           </p>
         </Section>
 
-        <Section title="Ball chaos">
+        <Section title="Ball Acceleration">
           <IndicatorMetricMiniPitch
             variant="ball_chaos"
             className="max-w-[min(100%,280px)]"
@@ -106,8 +260,8 @@ export function IndicatorsExplainedPage() {
               Higher
             </strong>{" "}
             values highlight stretches that feel fast, aerial, close to goal, or
-            aimed into the box, which is where chaotic attacking play usually
-            shows up.
+            aimed into the box, which is where high-acceleration attacking play
+            usually shows up.
           </p>
         </Section>
 
@@ -117,13 +271,28 @@ export function IndicatorsExplainedPage() {
             className="max-w-[min(100%,280px)]"
           />
           <p>
-            Whenever we know who has the ball, the defending outfield players
-            sit on a tactical shape graph. The metric studies the deepest line
-            in tactical depth bands and measures how even the spacing is and how
-            smooth the line looks in depth.
+            For each team, outfield players (goalkeepers excluded) are mapped with{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              frame_to_positions
+            </code>
+            —the same <strong>shape-graph → tactical grid</strong> pipeline as
+            above, but run on that side’s point set only. We order tactical depth
+            along the goal–goal axis (direction depends on average field position)
+            and take the <strong>deepest tactical band</strong> as the back line,
+            optionally merging with the next band if too few players appear there.{" "}
+            <strong>Spacing</strong> and <strong>jaggedness</strong> are then
+            computed from those players’ <strong>actual pitch coordinates in
+            metres</strong> (standard deviation of gaps along the line and of
+            depth), not from the integer grid cells themselves.
           </p>
           <p>
-            Missing possession or shape inference forces the score to zero.{" "}
+            Phase and possession metadata pick which team is attacking so the
+            published master score reflects the <strong>defending</strong> side’s
+            line quality for that instant.
+          </p>
+          <p>
+            If too few outfielders are tracked or the tactical mapping throws, that
+            team’s line scores fall back to zero.{" "}
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
             </strong>{" "}
@@ -147,6 +316,22 @@ export function IndicatorsExplainedPage() {
             gain.
           </p>
           <p>
+            <strong>Shape graph:</strong>{" "}
+            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[15px] text-[#1d1d1f] dark:bg-white/10 dark:text-[#f5f5f7]">
+              inferred_positions_for_frame
+            </code>{" "}
+            assigns each player a tactical grid cell; the{" "}
+            <strong>most advanced</strong> band among possession-team outfielders
+            and the <strong>deepest</strong> band among opponents define the two
+            lines. <strong>Acceleration</strong> itself uses three consecutive
+            tracking samples at <strong>0.1 s</strong> spacing on each line
+            member’s <strong>raw (x, y)</strong> coordinates—second differences in
+            metres per second squared—then compares mean magnitude on the forward
+            line versus the back line. The tactical grid is only for{" "}
+            <strong>who</strong> belongs to each line; kinematics stay in world
+            space.
+          </p>
+          <p>
             <strong className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
               Higher
             </strong>{" "}
@@ -155,6 +340,19 @@ export function IndicatorsExplainedPage() {
             behind the defense.
           </p>
         </Section>
+
+        <section className="mt-14 border-t border-black/[0.06] pt-12 dark:border-white/[0.08]">
+          <p className="text-[17px] leading-relaxed text-[#424245] dark:text-[#d2d2d7]">
+            To rebuild the JSON the dashboard loads from SkillCorner exports, see{" "}
+            <Link
+              to="/methodology/data-pipeline"
+              className="font-medium text-[#0066cc] underline-offset-2 hover:underline dark:text-[#2997ff]"
+            >
+              Data pipeline
+            </Link>
+            .
+          </p>
+        </section>
       </main>
     </SiteLayout>
   );

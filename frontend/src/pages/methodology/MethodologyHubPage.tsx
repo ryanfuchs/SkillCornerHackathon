@@ -51,14 +51,14 @@ export function MethodologyHubPage() {
         </p>
         <div className="mt-14 grid gap-6 sm:grid-cols-2">
           <TopicCard
-            to="/methodology/timeline"
-            title="Timeline & sync"
-            description="How we map frames to broadcast minutes, align the momentum strip with playback, and window the phase chart."
+            to="/methodology/data-pipeline"
+            title="Data pipeline"
+            description="SkillCorner exports in data/, pipeline/run_all.py, and the JSON files the frontend expects under src/data/."
           />
           <TopicCard
             to="/methodology/indicators"
             title="The five indicators"
-            description="Player clusters, position change, ball chaos, defensive line, and line to line acceleration. Each entry explains in plain language what the score is capturing."
+            description="Player clusters, position change, ball acceleration, defensive line, and line to line acceleration. Each entry explains in plain language what the score is capturing."
           />
         </div>
       </main>

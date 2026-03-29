@@ -142,7 +142,7 @@ const AREA_FILL_OPACITY = 0.2
 const INDICATOR_STYLES: { id: string; label: string; color: string }[] = [
   { id: 'player_clusters', label: 'Player clusters', color: '#a855f7' },
   { id: 'position_change', label: 'Position change', color: '#22c55e' },
-  { id: 'ball_chaos', label: 'Ball chaos', color: '#f97316' },
+  { id: 'ball_chaos', label: 'Ball Acceleration', color: '#f97316' },
   { id: 'defensive_line', label: 'Defensive line', color: '#38bdf8' },
   { id: 'line_to_line_acceleration', label: 'Line to line accel.', color: '#e11d48' },
 ]
