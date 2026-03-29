@@ -2,10 +2,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY package.json yarn.lock ./
+COPY frontend/package.json frontend/yarn.lock ./
 RUN yarn install --frozen-lockfile --network-timeout 100000
 
-COPY . .
+COPY frontend/ .
 RUN yarn build
 
 # Serve with nginx + HTTP basic auth (credentials from env at container start)
