@@ -410,31 +410,6 @@ export function PhaseBreakdownChart() {
           >
             <ChevronRight className="size-4" />
           </Button>
-          {totalFrames > 0 && (
-            <>
-              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                disabled={frameIndex <= 0}
-                onClick={() => jumpToFrame(frameIndex - 1)}
-              >
-                −1f
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                disabled={frameIndex >= totalFrames - 1}
-                onClick={() => jumpToFrame(frameIndex + 1)}
-              >
-                +1f
-              </Button>
-            </>
-          )}
         </div>
       </div>
 
