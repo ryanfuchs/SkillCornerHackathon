@@ -1,64 +1,9 @@
 import { useMemo, useState } from 'react'
-import {
-  IndicatorMetricMiniPitch,
-  type IndicatorMetricVariant,
-} from '@/components/concept/IndicatorMetricMiniPitch'
+import { IndicatorMetricMiniPitch } from '@/components/concept/IndicatorMetricMiniPitch'
+import { INDICATOR_CATALOG } from '@/data/indicatorCatalog'
 import { cn } from '@/lib/utils'
 
-const INDICATORS: {
-  id: string
-  letter: string
-  title: string
-  accent: string
-  metricVariant: IndicatorMetricVariant
-  summary: string
-}[] = [
-  {
-    id: 'defensive_line',
-    letter: 'A',
-    title: 'Defensive line',
-    accent: '#38bdf8',
-    metricVariant: 'defensive_line',
-    summary:
-      'The triangulated shape picks out the deepest defensive line for either team. We read depth jaggedness and horizontal gaps from the spread of tactical coordinates, folding midfielders in when fewer than three defenders appear. A higher score describes a broken line and rest defense that looks exposed.',
-  },
-  {
-    id: 'ball_chaos',
-    letter: 'B',
-    title: 'Ball Acceleration',
-    accent: '#f97316',
-    metricVariant: 'ball_chaos',
-    summary:
-      'Height, speed, and how the path bends between frames all feed this score, including sharp turns, sudden bursts, and awkward bounces. Values near one highlight strong acceleration and goalward motion; values near zero describe calm, controlled circulation.',
-  },
-  {
-    id: 'position_change',
-    letter: 'C',
-    title: 'Positional change',
-    accent: '#22c55e',
-    metricVariant: 'position_change',
-    summary:
-      'Every player snaps to a discrete tactical grid each frame. We add the Euclidean grid distance for everyone who appears in two consecutive frames, then normalize the total into a zero to one range. A higher value means more of the side is shifting tactical slots at once—widespread, simultaneous movement that makes the shape feel more unsettled between frames.',
-  },
-  {
-    id: 'line_to_line',
-    letter: 'D',
-    title: 'Line to line acceleration',
-    accent: '#e11d48',
-    metricVariant: 'line_to_line_acceleration',
-    summary:
-      'While the team in possession has the ball we contrast its most advanced line with the deepest opposing line using mean forward acceleration from tenth of a second steps. A higher score means attackers are accelerating harder forward than the retreating defenders.',
-  },
-  {
-    id: 'clusters',
-    letter: 'E',
-    title: 'Player clustering',
-    accent: '#a855f7',
-    metricVariant: 'player_clusters',
-    summary:
-      'Nearby players are grouped into spatial clusters. Each cluster is scored by how large it is and how tightly its members sit together. The strongest cluster sets the final player clustering score.',
-  },
-]
+const INDICATORS = INDICATOR_CATALOG.filter((e) => e.kind === 'core')
 
 export function IndicatorExplorer() {
   const [active, setActive] = useState(0)

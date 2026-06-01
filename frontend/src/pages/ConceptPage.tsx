@@ -86,16 +86,20 @@ export function ConceptPage() {
                 erratic, and opposing lines accelerate into one another.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  to="/match-lab"
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  title="MatchLab is temporarily unavailable"
                   className={cn(
                     buttonVariants({ size: 'lg' }),
                     'h-11 rounded-full px-7 text-[15px] shadow-md',
+                    'cursor-not-allowed opacity-50',
                   )}
                 >
                   Open MatchLab
                   <ArrowRight className="ml-2 size-4" aria-hidden />
-                </Link>
+                </button>
                 <a
                   href="#indicators"
                   className={cn(
@@ -232,6 +236,16 @@ export function ConceptPage() {
               so dropping in another indicator is mostly a new analyzer plus a
               thin slice of wiring, not a rewrite.
             </p>
+            <p className="mt-4 max-w-[720px] text-[17px] leading-relaxed text-[#6e6e73] dark:text-[#a1a1a6]">
+              <Link
+                to="/indicator-hub"
+                className="font-medium text-[#0066cc] underline-offset-2 hover:underline dark:text-[#2997ff]"
+              >
+                Indicator Hub
+              </Link>{' '}
+              is a small marketplace layer: download manifests, install packs
+              locally, and try previews before MatchLab.
+            </p>
             <div className="mt-10">
               <IndicatorExplorer />
             </div>
@@ -305,15 +319,19 @@ export function ConceptPage() {
                 <p className="text-[17px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
                   See Ball Acceleration and the other metrics move with the ball.
                 </p>
-                <Link
-                  to="/match-lab"
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  title="MatchLab is temporarily unavailable"
                   className={cn(
                     buttonVariants({ size: 'lg' }),
                     'mt-5 inline-flex h-11 rounded-full px-8 text-[15px]',
+                    'cursor-not-allowed opacity-50',
                   )}
                 >
                   Launch MatchLab
-                </Link>
+                </button>
               </div>
             </div>
           </SectionShell>

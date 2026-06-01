@@ -8,16 +8,15 @@ RUN yarn install --frozen-lockfile --network-timeout 100000
 COPY frontend/ .
 RUN yarn build
 
-# Serve with nginx + HTTP basic auth (credentials from env at container start)
-FROM nginx:alpine
+# Serve the static SPA with a minimal static file server (no nginx)
+FROM node:20-alpine
 
-RUN apk add --no-cache openssl
+WORKDIR /app
+RUN yarn global add serve@14
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 80
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# -s = single-page mode (history-API fallback to index.html)
+CMD ["serve", "-s", "dist", "-l", "80"]

@@ -27,15 +27,19 @@ export function LandingPage() {
             possession so you can scrub and compare.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/match-lab"
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              title="MatchLab is temporarily unavailable"
               className={cn(
                 buttonVariants({ size: 'lg' }),
                 'h-11 rounded-full px-8 text-[15px] shadow-sm',
+                'cursor-not-allowed opacity-50',
               )}
             >
               Open MatchLab
-            </Link>
+            </button>
             <Link
               to="/methodology"
               className={cn(
