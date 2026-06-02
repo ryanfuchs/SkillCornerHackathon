@@ -86,20 +86,16 @@ export function ConceptPage() {
                 erratic, and opposing lines accelerate into one another.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  title="MatchLab is temporarily unavailable"
+                <Link
+                  to="/matchlab"
                   className={cn(
                     buttonVariants({ size: 'lg' }),
                     'h-11 rounded-full px-7 text-[15px] shadow-md',
-                    'cursor-not-allowed opacity-50',
                   )}
                 >
                   Open MatchLab
                   <ArrowRight className="ml-2 size-4" aria-hidden />
-                </button>
+                </Link>
                 <a
                   href="#indicators"
                   className={cn(
@@ -319,19 +315,15 @@ export function ConceptPage() {
                 <p className="text-[17px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
                   See Ball Acceleration and the other metrics move with the ball.
                 </p>
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  title="MatchLab is temporarily unavailable"
+                <Link
+                  to="/matchlab"
                   className={cn(
                     buttonVariants({ size: 'lg' }),
                     'mt-5 inline-flex h-11 rounded-full px-8 text-[15px]',
-                    'cursor-not-allowed opacity-50',
                   )}
                 >
                   Launch MatchLab
-                </button>
+                </Link>
               </div>
             </div>
           </SectionShell>

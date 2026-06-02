@@ -5,6 +5,8 @@ import { ConceptPage } from '@/pages/ConceptPage'
 import { DataPipelinePage } from '@/pages/methodology/DataPipelinePage'
 import { IndicatorsExplainedPage } from '@/pages/methodology/IndicatorsExplainedPage'
 import { IndicatorHubPage } from '@/pages/IndicatorHubPage'
+import { IndicatorStudioPage } from '@/pages/IndicatorStudioPage'
+import { MatchLabPage } from '@/pages/MatchLabPage'
 
 function App() {
   return (
@@ -12,7 +14,9 @@ function App() {
       <ScrollToTop />
       <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/matchlab" element={<MatchLabPage />} />
       <Route path="/indicator-hub" element={<IndicatorHubPage />} />
+      <Route path="/indicator-studio" element={<IndicatorStudioPage />} />
       <Route path="/methodology" element={<ConceptPage />} />
       <Route
         path="/methodology/data-pipeline"

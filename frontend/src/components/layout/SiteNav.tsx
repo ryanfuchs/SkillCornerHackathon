@@ -30,18 +30,14 @@ export function SiteNav() {
           <NavLink to="/" end className={navLinkClass}>
             Home
           </NavLink>
-          <span
-            aria-disabled="true"
-            title="MatchLab is temporarily unavailable"
-            className={cn(
-              linkBase,
-              'cursor-not-allowed text-[#c7c7cc] dark:text-[#48484a]',
-            )}
-          >
+          <NavLink to="/matchlab" className={navLinkClass}>
             MatchLab
-          </span>
+          </NavLink>
           <NavLink to="/indicator-hub" className={navLinkClass}>
             Indicator Hub
+          </NavLink>
+          <NavLink to="/indicator-studio" className={navLinkClass}>
+            Indicator Studio
           </NavLink>
           <NavLink to="/methodology" className={navLinkClass}>
             Concept

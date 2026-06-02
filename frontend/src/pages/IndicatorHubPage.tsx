@@ -113,13 +113,12 @@ export function IndicatorHubPage() {
               Browse core MatchLab metrics and community plugins. Install packs
               locally to curate what you want to try, download manifests, and
               run a live pitch sandbox before opening a full match in{' '}
-              <span
-                aria-disabled="true"
-                title="MatchLab is temporarily unavailable"
-                className="font-medium text-[#86868b] dark:text-[#98989d]"
+              <Link
+                to="/matchlab"
+                className="font-medium text-[#0066cc] hover:underline dark:text-[#2997ff]"
               >
                 MatchLab
-              </span>
+              </Link>
               .
             </p>
           </div>
@@ -340,19 +339,15 @@ export function IndicatorHubPage() {
                     />
                   </div>
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      disabled
-                      aria-disabled="true"
-                      title="MatchLab is temporarily unavailable"
+                    <Link
+                      to="/matchlab"
                       className={cn(
                         buttonVariants({ size: 'lg' }),
                         'h-11 rounded-full px-6 text-[15px]',
-                        'cursor-not-allowed opacity-50',
                       )}
                     >
                       Open MatchLab
-                    </button>
+                    </Link>
                     <Link
                       to="/methodology/indicators"
                       className={cn(
